@@ -1,0 +1,4 @@
+motor==1.1
+trafaret==0.9.0
+pytest
+pytest-cov
