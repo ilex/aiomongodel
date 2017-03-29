@@ -108,9 +108,11 @@ def test_field_attributes(field, default):
     assert Doc.value.s == 'value'
     assert Doc.value.required is False
     assert Doc.value.default is _Empty
+    assert Doc.value.choices is None
 
     class DocWithMongo(Document):
-        value = field(required=True, default=default, mongo_name='val')
+        value = field(required=True, default=default, mongo_name='val',
+                      choices=[default])
 
     assert isinstance(DocWithMongo.value, field)
     assert DocWithMongo.value.name == 'value'
@@ -118,6 +120,7 @@ def test_field_attributes(field, default):
     assert DocWithMongo.value.s == 'val'
     assert DocWithMongo.value.required is True
     assert DocWithMongo.value.default == default
+    assert DocWithMongo.value.choices == [default]
 
 
 @pytest.mark.parametrize('field, default', FIELD_DEFAULT)
@@ -266,11 +269,17 @@ FROM_DATA = [
     (AnyField(), True, True),
     (StrField(), '', ''),
     (StrField(), 'xxx', 'xxx'),
+    (StrField(choices=('xxx', 'yyy')), 'xxx', 'xxx'),
     (StrField(), 1, ValidationError()),
     (StrField(), True, ValidationError()),
     (StrField(allow_blank=False), '', ValidationError()),
+    (StrField(choices=('xxx', 'yyy')), 'zzz', ValidationError()),
+    (StrField(choices=('xxx', 'yyy')), 1, ValidationError()),
     (IntField(), 1, 1),
     (IntField(), '1', 1),
+    (IntField(choices=[*range(10)]), 5, 5),
+    (IntField(choices=[*range(10)]), 'xxx', ValidationError()),
+    (IntField(choices=[*range(10)]), 100, ValidationError()),
     (IntField(), 'xxx', ValidationError()),
     (IntField(), 1.3, ValidationError()),
     (IntField(gte=1, lte=13), 1, 1),

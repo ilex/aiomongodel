@@ -11,12 +11,17 @@ from .utils import _Empty, import_class
 class Field(object):
     """Base field."""
 
-    def __init__(self, *, required=True, default=_Empty,
-                 mongo_name=None, name=None):
+    def __init__(self, trafaret, *, required=True, default=_Empty,
+                 mongo_name=None, name=None, choices=None):
         self.mongo_name = mongo_name
         self.name = name
         self.required = required
         self._default = default
+        if trafaret:
+            self.trafaret = trafaret
+            if choices:
+                self.trafaret = trafaret >> t.Enum(*choices)
+        self.choices = choices
 
     @property
     def name(self):
@@ -71,8 +76,7 @@ class AnyField(Field):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Any()
+        super().__init__(t.Any(), **kwargs)
 
 
 class StrField(Field):
@@ -80,48 +84,43 @@ class StrField(Field):
 
     def __init__(self, *, allow_blank=True, regex=None, min_length=None,
                  max_length=None, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.String(allow_blank, regex, min_length, max_length)
+        trafaret = t.String(allow_blank, regex, min_length, max_length)
+        super().__init__(trafaret, **kwargs)
 
 
 class BoolField(Field):
     """Boolean field."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Bool()
+        super().__init__(t.Bool(), **kwargs)
 
 
 class IntField(Field):
     """Integer field."""
 
     def __init__(self, *, gte=None, lte=None, gt=None, lt=None, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Int(gte, lte, gt, lt)
+        super().__init__(t.Int(gte, lte, gt, lt), **kwargs)
 
 
 class DateTimeField(Field):
     """Date and time field based on datetime.datetime."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Type(datetime)
+        super().__init__(t.Type(datetime), **kwargs)
 
 
 class FloatField(Field):
     """Float field."""
 
     def __init__(self, *, gte=None, lte=None, gt=None, lt=None, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Float(gte, lte, gt, lt)
+        super().__init__(t.Float(gte, lte, gt, lt), **kwargs)
 
 
 class ObjectIdField(Field):
     """ObjectId field."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.trafaret = t.Type(ObjectId)
+        super().__init__(t.Type(ObjectId), **kwargs)
 
 
 class CompoundFieldNameBuilder:
@@ -175,7 +174,7 @@ class CompoundField(Field):
                  "subclass of '{0}' or str, not a '{1}'").format(
                      base_document_class, document_class))
         self._base_document_class = base_document_class
-        super().__init__(**kwargs)
+        super().__init__(None, **kwargs)
 
     @property
     def document_class(self):
@@ -311,20 +310,18 @@ class RefField(CompoundField):
         return self.document_class._id.from_data(value)
 
 
-class EmailField(StrField):
+class EmailField(Field):
     """Email field."""
 
     def __init__(self, *, allow_blank=False, **kwargs):
-        super().__init__(allow_blank=allow_blank, **kwargs)
-        self.trafaret = t.Email(allow_blank=allow_blank)
+        super().__init__(t.Email(allow_blank=allow_blank), **kwargs)
 
 
-class URLField(StrField):
+class URLField(Field):
     """URL field."""
 
     def __init__(self, *, allow_blank=False, **kwargs):
-        super().__init__(allow_blank=allow_blank, **kwargs)
-        self.trafaret = t.URL(allow_blank=allow_blank)
+        super().__init__(t.URL(allow_blank=allow_blank), **kwargs)
 
 
 class SynonymField(object):
