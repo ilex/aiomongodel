@@ -8,7 +8,8 @@ from aiomongodel import Document, EmbeddedDocument
 from aiomongodel.errors import ValidationError
 from aiomongodel.fields import (
     AnyField, StrField, IntField, FloatField, BoolField, DateTimeField,
-    ObjectIdField, EmbDocField, ListField, RefField, EmailField, SynonymField)
+    ObjectIdField, EmbDocField, ListField, RefField, EmailField, URLField,
+    SynonymField)
 from aiomongodel.utils import _Empty
 
 
@@ -41,7 +42,8 @@ FIELD_DEFAULT = [
     (BoolField, True),
     (DateTimeField, dt),
     (ObjectIdField, ObjectId('58ce6d537e592254b67a503d')),
-    (EmailField, 'totti@example.com')
+    (EmailField, 'totti@example.com'),
+    (URLField, 'http://example.com'),
 ]
 
 
@@ -86,6 +88,7 @@ def test_field_init_and_assign_wrong_value(field, wrong_value):
     (ListField(EmbDocField(EmbDoc), required=False), None),
     (RefField(RefDoc, required=False), None),
     (EmailField(required=False), None),
+    (URLField(required=False), None),
 ])
 def test_field_not_exist_get_value(field, expected):
     class Doc(Document):
@@ -248,6 +251,7 @@ def test_compound_field_document_class():
         ObjectId('58ce6d537e592254b67a503d')),
     (RefField(RefDoc), ref_doc, ref_doc._id),
     (EmailField(), 'totti@example.com', 'totti@example.com'),
+    (URLField(), 'http://example.com', 'http://example.com'),
 ])
 def test_field_to_son(field, value, expected):
     class Doc(Document):
@@ -325,6 +329,14 @@ FROM_DATA = [
     (EmailField(), '@example.com', ValidationError()),
     (EmailField(), 'totti@example', ValidationError()),
     (EmailField(), 1, TypeError()),  # TODO: should be a ValidationError
+    (URLField(), 'http://example.com', 'http://example.com'),
+    (URLField(), 'https://example.com/xxx/?value=0',
+                 'https://example.com/xxx/?value=0'),
+    (URLField(), 'example.com', ValidationError()),
+    (URLField(), 'totti@example.com', ValidationError()),
+    (URLField(), 'xxx', ValidationError()),
+    (URLField(), '/xxx/xxx', ValidationError()),
+    (URLField(), 1, AttributeError()),  # TODO: should be a ValidationError
 ]
 
 

@@ -319,6 +319,14 @@ class EmailField(StrField):
         self.trafaret = t.Email(allow_blank=allow_blank)
 
 
+class URLField(StrField):
+    """URL field."""
+
+    def __init__(self, *, allow_blank=False, **kwargs):
+        super().__init__(allow_blank=allow_blank, **kwargs)
+        self.trafaret = t.URL(allow_blank=allow_blank)
+
+
 class SynonymField(object):
     """Create synonym name for real field."""
 
