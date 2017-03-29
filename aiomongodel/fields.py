@@ -81,8 +81,7 @@ class StrField(Field):
     def __init__(self, *, allow_blank=True, regex=None, min_length=None,
                  max_length=None, **kwargs):
         super().__init__(**kwargs)
-        self.trafaret = t.String(allow_blank, regex,
-                                          min_length, max_length)
+        self.trafaret = t.String(allow_blank, regex, min_length, max_length)
 
 
 class BoolField(Field):
@@ -310,6 +309,14 @@ class RefField(CompoundField):
             return value
 
         return self.document_class._id.from_data(value)
+
+
+class EmailField(StrField):
+    """Email field."""
+
+    def __init__(self, *, allow_blank=False, **kwargs):
+        super().__init__(allow_blank=allow_blank, **kwargs)
+        self.trafaret = t.Email(allow_blank=allow_blank)
 
 
 class SynonymField(object):

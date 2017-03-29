@@ -8,7 +8,7 @@ from aiomongodel import Document, EmbeddedDocument
 from aiomongodel.errors import ValidationError
 from aiomongodel.fields import (
     AnyField, StrField, IntField, FloatField, BoolField, DateTimeField,
-    ObjectIdField, EmbDocField, ListField, RefField, SynonymField)
+    ObjectIdField, EmbDocField, ListField, RefField, EmailField, SynonymField)
 from aiomongodel.utils import _Empty
 
 
@@ -40,7 +40,8 @@ FIELD_DEFAULT = [
     (FloatField, 1.3),
     (BoolField, True),
     (DateTimeField, dt),
-    (ObjectIdField, ObjectId('58ce6d537e592254b67a503d'))
+    (ObjectIdField, ObjectId('58ce6d537e592254b67a503d')),
+    (EmailField, 'totti@example.com')
 ]
 
 
@@ -62,6 +63,7 @@ FIELD_DEFAULT = [
     (ListField(IntField(), required=True, default=[]), ['xxx'])
 ])
 def test_field_init_and_assign_wrong_value(field, wrong_value):
+    # TODO: remove this test
     class Doc(Document):
         value = field
 
@@ -83,6 +85,7 @@ def test_field_init_and_assign_wrong_value(field, wrong_value):
     (EmbDocField(EmbDoc, required=False), None),
     (ListField(EmbDocField(EmbDoc), required=False), None),
     (RefField(RefDoc, required=False), None),
+    (EmailField(required=False), None),
 ])
 def test_field_not_exist_get_value(field, expected):
     class Doc(Document):
@@ -244,6 +247,7 @@ def test_compound_field_document_class():
         ObjectId('58ce6d537e592254b67a503d'),
         ObjectId('58ce6d537e592254b67a503d')),
     (RefField(RefDoc), ref_doc, ref_doc._id),
+    (EmailField(), 'totti@example.com', 'totti@example.com'),
 ])
 def test_field_to_son(field, value, expected):
     class Doc(Document):
@@ -315,7 +319,12 @@ FROM_DATA = [
     (EmbDocField(EmbDoc), WrongEmbDoc(wrong='xxx'), ValidationError()),
     (EmbDocField(EmbDoc), 1, ValidationError()),
     (EmbDocField(EmbDoc), {'str_field': 1}, ValidationError()),
-    (EmbDocField(EmbDoc), RefDoc(), ValidationError())
+    (EmbDocField(EmbDoc), RefDoc(), ValidationError()),
+    (EmailField(), 'totti@example.com', 'totti@example.com'),
+    (EmailField(), 'example.com', ValidationError()),
+    (EmailField(), '@example.com', ValidationError()),
+    (EmailField(), 'totti@example', ValidationError()),
+    (EmailField(), 1, TypeError()),  # TODO: should be a ValidationError
 ]
 
 
