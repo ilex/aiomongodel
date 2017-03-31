@@ -196,6 +196,28 @@ class BaseDocument(object):
             return
 
         meta = self.__class__.meta
+        errors = {}
+        for field_name, field in meta.fields.items():
+            try:
+                value = self._get_field_value_from_data(kwargs, field_name)
+            except KeyError:
+                value = field.default
+
+            if value is _Empty:
+                if field.required:
+                    errors[field_name] = ValidationError('field is required')
+                continue
+
+            try:
+                setattr(self, field_name, value)
+            except ValidationError as e:
+                errors[field_name] = e
+
+        if errors:
+            raise ValidationError(error=errors)
+
+        """
+        meta = self.__class__.meta
         for field_name, field in meta.fields.items():
             with contextlib.suppress(KeyError):
                 setattr(self, field_name, kwargs[field_name])
@@ -215,6 +237,22 @@ class BaseDocument(object):
                              'a default value.').format(
                                  self.__class__.__name__, field_name))
                     setattr(self, field_name, field.default)
+        """
+    def _get_field_value_from_data(self, data, field_name):
+        """Retrieve value from data for given field_name.
+
+        Try use synonym name if field's name is not in data.
+
+        Args:
+            data (dict): Data in form field_name -> value.
+            field_name (str): Field's name.
+
+        Raises:
+            KeyError: If field_name has no value in data.
+        """
+        with contextlib.suppress(KeyError):
+            return data[field_name]
+        return data[self.__class__.meta.fields_synonyms[field_name]]
 
     def _set_son(self, data):
         self._data = OrderedDict()
@@ -240,7 +278,11 @@ class BaseDocument(object):
 
     @classmethod
     def from_data(cls, data):
-        return cls(**data)
+        try:
+            return cls(**data)
+        except TypeError:
+            raise ValidationError(
+                "value can't be converted to {0}".format(cls.__name__))
 
 
 class Document(BaseDocument, metaclass=DocumentMeta):

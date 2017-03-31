@@ -62,7 +62,7 @@ class Field(object):
         try:
             return self.trafaret.check(value)
         except t.DataError as e:
-            raise ValidationError() from e
+            raise ValidationError(error=str(e))
 
     @property
     def s(self):
@@ -82,9 +82,19 @@ class AnyField(Field):
 class StrField(Field):
     """String field."""
 
-    def __init__(self, *, allow_blank=True, regex=None, min_length=None,
+    def __init__(self, *, allow_blank=True, regexp=None, min_length=None,
                  max_length=None, **kwargs):
-        trafaret = t.String(allow_blank, regex, min_length, max_length)
+        """Create string field.
+
+        If ``regex`` is given ``allow_blank``, ``min_length`` and
+        ``max_length`` are ignored.
+        """
+        if regexp is None:
+            trafaret = t.String(allow_blank=allow_blank,
+                                min_length=min_length,
+                                max_length=max_length)
+        else:
+            trafaret = t.Regexp(regexp=regexp)
         super().__init__(trafaret, **kwargs)
 
 
@@ -225,12 +235,14 @@ class EmbDocField(CompoundField):
         if isinstance(value, self.document_class):
             return value
 
+        return self.document_class.from_data(value)
+        """
         try:
-            return self.document_class.from_data(value)
         except TypeError:
             raise ValidationError(("'{0}' can be assign with '{1}' instance "
                                    " or dict, but '{2}' is given").format(
                                        self.name, self.document_class, value))
+        """
 
 
 class ListField(CompoundField):
@@ -268,20 +280,27 @@ class ListField(CompoundField):
         return [self.item_field.from_son(item) for item in value]
 
     def from_data(self, value):
-        try:
-            lst = [self.item_field.from_data(item) for item in value]
-            lst_len = len(lst)
-            if self.min_length and lst_len < self.min_length:
-                raise ValidationError(("List field '{0}' length should not be "
-                                       "less than {0}").format(
-                                           self.name, self.min_length))
-            if self.max_length and lst_len > self.max_length:
-                raise ValidationError(("List field '{0}' length should not be "
-                                       "greater than {0}").format(
-                                           self.name, self.max_length))
-            return lst
-        except TypeError as e:
-            raise ValidationError() from e
+        if not isinstance(value, list):
+            raise ValidationError('value is not a list')
+        if len(value) < self.min_length:
+            raise ValidationError(
+                'list length is less than {0}'.format(self.min_length))
+        if self.max_length is not None and len(value) > self.max_length:
+            raise ValidationError(
+                'list length is greater than {0}'.format(self.max_length))
+
+        errors = {}
+        lst = []
+        for index, item in enumerate(value):
+            try:
+                lst.append(self.item_field.from_data(item))
+            except ValidationError as e:
+                errors[index] = e
+
+        if errors:
+            raise ValidationError(error=errors)
+
+        return lst
 
 
 class RefField(CompoundField):
@@ -316,12 +335,24 @@ class EmailField(Field):
     def __init__(self, *, allow_blank=False, **kwargs):
         super().__init__(t.Email(allow_blank=allow_blank), **kwargs)
 
+    def from_data(self, value):
+        try:
+            return super().from_data(value)
+        except TypeError:
+            raise ValidationError(error='value is not a valid email address')
+
 
 class URLField(Field):
     """URL field."""
 
     def __init__(self, *, allow_blank=False, **kwargs):
         super().__init__(t.URL(allow_blank=allow_blank), **kwargs)
+
+    def from_data(self, value):
+        try:
+            return super().from_data(value)
+        except AttributeError:
+            raise ValidationError(error='value is not URL')
 
 
 class SynonymField(object):

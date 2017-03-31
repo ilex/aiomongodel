@@ -47,36 +47,6 @@ FIELD_DEFAULT = [
 ]
 
 
-@pytest.mark.parametrize('field, wrong_value', [
-    (StrField(required=True, default=''), 1),
-    (IntField(required=True, default=0), 'xxx'),
-    (IntField(required=True, default=0), 1.3),
-    (FloatField(required=True, default=0.0), 'xxx'),
-    (BoolField(required=True, default=True), 5),
-    (DateTimeField(required=True, default=datetime.utcnow()), 'xxx'),
-    (ObjectIdField(required=True, default=ObjectId()), 'xxx'),
-    (RefField(RefDoc, required=True, default=ObjectId()), 'xxx'),
-    (EmbDocField(EmbDoc, required=True, default=EmbDoc(int_field=1)), 1),
-    (EmbDocField(EmbDoc, required=True, default=EmbDoc(int_field=1)), {}),
-    (EmbDocField(EmbDoc, required=True, default=EmbDoc(int_field=1)),
-        RefDoc()),
-    (ListField(IntField(), required=True, default=[]), 1),
-    (ListField(IntField(), required=True, default=[]), 'xxx'),
-    (ListField(IntField(), required=True, default=[]), ['xxx'])
-])
-def test_field_init_and_assign_wrong_value(field, wrong_value):
-    # TODO: remove this test
-    class Doc(Document):
-        value = field
-
-    with pytest.raises(ValidationError):
-        Doc(value=wrong_value)
-
-    d = Doc()
-    with pytest.raises(ValidationError):
-        d.value = wrong_value
-
-
 @pytest.mark.parametrize('field, expected', [
     (StrField(required=False), None),
     (IntField(required=False), None),
@@ -270,82 +240,109 @@ FROM_DATA = [
     (StrField(), '', ''),
     (StrField(), 'xxx', 'xxx'),
     (StrField(choices=('xxx', 'yyy')), 'xxx', 'xxx'),
-    (StrField(), 1, ValidationError()),
-    (StrField(), True, ValidationError()),
-    (StrField(allow_blank=False), '', ValidationError()),
-    (StrField(choices=('xxx', 'yyy')), 'zzz', ValidationError()),
-    (StrField(choices=('xxx', 'yyy')), 1, ValidationError()),
+    (StrField(), 1, ValidationError("value is not a string")),
+    (StrField(), True, ValidationError("value is not a string")),
+    (StrField(allow_blank=False), '',
+        ValidationError("blank value is not allowed")),
+    (StrField(choices=('xxx', 'yyy')), 'zzz',
+        ValidationError("value doesn't match any variant")),
+    (StrField(choices=('xxx', 'yyy')), 1,
+        ValidationError("value is not a string")),
     (IntField(), 1, 1),
     (IntField(), '1', 1),
     (IntField(choices=[*range(10)]), 5, 5),
-    (IntField(choices=[*range(10)]), 'xxx', ValidationError()),
-    (IntField(choices=[*range(10)]), 100, ValidationError()),
-    (IntField(), 'xxx', ValidationError()),
-    (IntField(), 1.3, ValidationError()),
+    (IntField(choices=[*range(10)]), 'xxx',
+        ValidationError("value can't be converted to int")),
+    (IntField(choices=[*range(10)]), 100,
+        ValidationError("value doesn't match any variant")),
+    (IntField(), 'xxx', ValidationError("value can't be converted to int")),
+    (IntField(), 1.3, ValidationError("value is not int")),
     (IntField(gte=1, lte=13), 1, 1),
     (IntField(gte=1, lte=13), 13, 13),
     (IntField(gte=1, lte=13), 10, 10),
-    (IntField(gte=1, lte=13), 0, ValidationError()),
-    (IntField(gte=1, lte=13), 20, ValidationError()),
+    (IntField(gte=1, lte=13), 0, ValidationError('value is less than 1')),
+    (IntField(gte=1, lte=13), 20,
+        ValidationError('value is greater than 13')),
     (IntField(gt=1, lt=13), 10, 10),
-    (IntField(gt=1, lt=13), 1, ValidationError()),
-    (IntField(gt=1, lt=13), 13, ValidationError()),
-    (IntField(gt=1, lt=13), 0, ValidationError()),
-    (IntField(gt=1, lt=13), 20, ValidationError()),
+    (IntField(gt=1, lt=13), 1,
+        ValidationError('value should be greater than 1')),
+    (IntField(gt=1, lt=13), 13,
+        ValidationError('value should be less than 13')),
+    (IntField(gt=1, lt=13), 0,
+        ValidationError('value should be greater than 1')),
+    (IntField(gt=1, lt=13), 20,
+        ValidationError('value should be less than 13')),
     (FloatField(), 1, pytest.approx(1.0)),
     (FloatField(), 1.0, pytest.approx(1.0)),
     (FloatField(), '1.0', pytest.approx(1.0)),
     (FloatField(), '1', pytest.approx(1.0)),
-    (FloatField(), 'xxx', ValidationError()),
+    (FloatField(), 'x', ValidationError("value can't be converted to float")),
     (FloatField(gt=1.0, lt=13.0), 10.0, pytest.approx(10.0)),
-    (FloatField(gt=1.0, lt=13.0), 0.0, ValidationError()),
-    (FloatField(gt=1.0, lt=13.0), 20.0, ValidationError()),
+    (FloatField(gt=1.0, lt=13.0), 0.0,
+        ValidationError("value should be greater than 1.0")),
+    (FloatField(gt=1.0, lt=13.0), 20.0,
+        ValidationError("value should be less than 13.0")),
     (BoolField(), True, True),
     (BoolField(), False, False),
-    (BoolField(), 13, ValidationError()),
+    (BoolField(), 13, ValidationError('value should be True or False')),
     (DateTimeField(), dt, dt),
-    (DateTimeField(), True, ValidationError()),
+    (DateTimeField(), True, ValidationError('value is not datetime')),
     (ObjectIdField(),
         ObjectId('58ce6d537e592254b67a503d'),
         ObjectId('58ce6d537e592254b67a503d')),
-    (ObjectIdField(), '58ce6d537e592254b67a503d', ValidationError()),
+    (ObjectIdField(), '58ce6d537e592254b67a503d',
+        ValidationError('value is not ObjectId')),
     (ListField(IntField()), [], []),
     (ListField(IntField()), [1, 2, 3], [1, 2, 3]),
     (ListField(IntField()), ['1', '2', '3'], [1, 2, 3]),
-    (ListField(IntField()), [0, 'xxx', 1], ValidationError()),
+    (ListField(IntField()), [0, 'xxx', 1],
+        ValidationError("{1: ValidationError(value "
+                        "can't be converted to int)}")),
     (ListField(IntField(), min_length=3, max_length=5),
-        [0, 1], ValidationError()),
+        [0, 1], ValidationError('list length is less than 3')),
     (ListField(IntField(), min_length=3, max_length=5), [0, 1, 2], [0, 1, 2]),
     (ListField(IntField(), min_length=3, max_length=5),
-        [0, 1, 2, 3, 4, 5], ValidationError()),
+        [0, 1, 2, 3, 4, 5], ValidationError('list length is greater than 5')),
     (ListField(RefField(RefDoc)), [ref_doc], [ref_doc]),
-    (ListField(RefField(RefDoc)), [1], ValidationError()),
+    (ListField(RefField(RefDoc)), [1],
+        ValidationError('{0: ValidationError(value is not ObjectId)}')),
     (ListField(EmbDocField(EmbDoc)), [emb_doc], [emb_doc]),
-    (ListField(EmbDocField(EmbDoc)), [1], ValidationError()),
+    (ListField(EmbDocField(EmbDoc)), [1],
+        ValidationError("{0: ValidationError(value "
+                        "can't be converted to EmbDoc)}")),
     (RefField(RefDoc),
         ObjectId('58ce6d537e592254b67a503d'),
         ObjectId('58ce6d537e592254b67a503d')),
     (RefField(RefDoc), ref_doc, ref_doc),
-    (RefField(RefDoc), 'xxx', ValidationError()),
-    (RefField(RefDoc), WrongRefDoc(), ValidationError()),
+    (RefField(RefDoc), 'xxx', ValidationError('value is not ObjectId')),
+    (RefField(RefDoc), WrongRefDoc(),
+        ValidationError('value is not ObjectId')),
     (EmbDocField(EmbDoc), emb_doc, emb_doc),
-    (EmbDocField(EmbDoc), WrongEmbDoc(wrong='xxx'), ValidationError()),
-    (EmbDocField(EmbDoc), 1, ValidationError()),
-    (EmbDocField(EmbDoc), {'str_field': 1}, ValidationError()),
-    (EmbDocField(EmbDoc), RefDoc(), ValidationError()),
+    (EmbDocField(EmbDoc), WrongEmbDoc(wrong='xxx'),
+        ValidationError("value can't be converted to EmbDoc")),
+    (EmbDocField(EmbDoc), 1,
+        ValidationError("value can't be converted to EmbDoc")),
+    (EmbDocField(EmbDoc), {'str_field': 1},
+        ValidationError("{'int_field': ValidationError(field is required)}")),
+    (EmbDocField(EmbDoc), RefDoc(),
+        ValidationError("value can't be converted to EmbDoc")),
     (EmailField(), 'totti@example.com', 'totti@example.com'),
-    (EmailField(), 'example.com', ValidationError()),
-    (EmailField(), '@example.com', ValidationError()),
-    (EmailField(), 'totti@example', ValidationError()),
-    (EmailField(), 1, TypeError()),  # TODO: should be a ValidationError
+    (EmailField(), 'example.com',
+        ValidationError("value is not a valid email address")),
+    (EmailField(), '@example.com',
+        ValidationError("value is not a valid email address")),
+    (EmailField(), 'totti@example',
+        ValidationError("value is not a valid email address")),
+    (EmailField(), 1,
+        ValidationError("value is not a valid email address")),
     (URLField(), 'http://example.com', 'http://example.com'),
     (URLField(), 'https://example.com/xxx/?value=0',
                  'https://example.com/xxx/?value=0'),
-    (URLField(), 'example.com', ValidationError()),
-    (URLField(), 'totti@example.com', ValidationError()),
-    (URLField(), 'xxx', ValidationError()),
-    (URLField(), '/xxx/xxx', ValidationError()),
-    (URLField(), 1, AttributeError()),  # TODO: should be a ValidationError
+    (URLField(), 'example.com', ValidationError('value is not URL')),
+    (URLField(), 'totti@example.com', ValidationError('value is not URL')),
+    (URLField(), 'xxx', ValidationError('value is not URL')),
+    (URLField(), '/xxx/xxx', ValidationError('value is not URL')),
+    (URLField(), 1, ValidationError('value is not URL')),
 ]
 
 
@@ -355,8 +352,9 @@ def test_field_from_data(field, value, expected):
         value = field
 
     if isinstance(expected, Exception):
-        with pytest.raises(type(expected)):
+        with pytest.raises(type(expected)) as excinfo:
             Doc.value.from_data(value)
+        assert str(excinfo.value) == str(expected)
     else:
         assert Doc.value.from_data(value) == expected
 
