@@ -1,15 +1,16 @@
 import pytest
 
 from datetime import datetime
+from decimal import Decimal
 
-from bson import ObjectId
+from bson import ObjectId, Decimal128
 
 from aiomongodel import Document, EmbeddedDocument
 from aiomongodel.errors import ValidationError
 from aiomongodel.fields import (
     AnyField, StrField, IntField, FloatField, BoolField, DateTimeField,
     ObjectIdField, EmbDocField, ListField, RefField, EmailField, URLField,
-    SynonymField)
+    DecimalField, SynonymField)
 from aiomongodel.utils import _Empty
 
 
@@ -44,6 +45,7 @@ FIELD_DEFAULT = [
     (ObjectIdField, ObjectId('58ce6d537e592254b67a503d')),
     (EmailField, 'totti@example.com'),
     (URLField, 'http://example.com'),
+    (DecimalField, Decimal('0.005')),
 ]
 
 
@@ -225,12 +227,42 @@ def test_compound_field_document_class():
     (RefField(RefDoc), ref_doc, ref_doc._id),
     (EmailField(), 'totti@example.com', 'totti@example.com'),
     (URLField(), 'http://example.com', 'http://example.com'),
+    (DecimalField(), Decimal('0.005'), Decimal128(Decimal('0.005'))),
 ])
 def test_field_to_son(field, value, expected):
     class Doc(Document):
         value = field
 
     assert Doc.value.to_son(value) == expected
+
+
+@pytest.mark.parametrize('field, value, expected', [
+    (AnyField(), '1', '1'),
+    (AnyField(), 1, 1),
+    (AnyField(), True, True),
+    (StrField(), 'xxx', 'xxx'),
+    (IntField(), 1, 1),
+    (FloatField(), 13.0, pytest.approx(13.0)),
+    (BoolField(), True, True),
+    (BoolField(), False, False),
+    (DateTimeField(), dt, dt),
+    (ObjectIdField(),
+        ObjectId('58ce6d537e592254b67a503d'),
+        ObjectId('58ce6d537e592254b67a503d')),
+    (ListField(IntField()), [], []),
+    (ListField(IntField()), [1, 2, 3], [1, 2, 3]),
+    (RefField(RefDoc),
+        ObjectId('58ce6d537e592254b67a503d'),
+        ObjectId('58ce6d537e592254b67a503d')),
+    (EmailField(), 'totti@example.com', 'totti@example.com'),
+    (URLField(), 'http://example.com', 'http://example.com'),
+    (DecimalField(), Decimal128(Decimal('0.005')), Decimal('0.005')),
+])
+def test_field_from_son(field, value, expected):
+    class Doc(Document):
+        value = field
+
+    assert Doc.value.from_son(value) == expected
 
 
 FROM_DATA = [
@@ -343,6 +375,24 @@ FROM_DATA = [
     (URLField(), 'xxx', ValidationError('value is not URL')),
     (URLField(), '/xxx/xxx', ValidationError('value is not URL')),
     (URLField(), 1, ValidationError('value is not URL')),
+    (DecimalField(), Decimal(1), Decimal(1)),
+    (DecimalField(), '0.005', Decimal('0.005')),
+    (DecimalField(gte=1, lte=13), '1.0', Decimal('1.0')),
+    (DecimalField(gte=1, lte=13), '13', Decimal('13')),
+    (DecimalField(gte=1, lte=13), '10.5', Decimal('10.5')),
+    (DecimalField(gte=Decimal(1), lte=13), 0,
+        ValidationError('value is less than 1')),
+    (DecimalField(gte=1, lte=13), Decimal('20.5'),
+        ValidationError('value is greater than 13')),
+    (DecimalField(gt=1, lt=13), 10, Decimal(10)),
+    (DecimalField(gt=1, lt=13), 1,
+        ValidationError('value should be greater than 1')),
+    (DecimalField(gt=1, lt=Decimal('13.0')), 13,
+        ValidationError('value should be less than 13.0')),
+    (DecimalField(gt=1, lt=Decimal('13.0')), Decimal('0'),
+        ValidationError('value should be greater than 1')),
+    (DecimalField(gt=1, lt=13), Decimal('20'),
+        ValidationError('value should be less than 13')),
 ]
 
 

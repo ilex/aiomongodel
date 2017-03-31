@@ -1,8 +1,9 @@
 import functools
 from datetime import datetime
+from decimal import Decimal
 
 import trafaret as t
-from bson import ObjectId
+from bson import ObjectId, Decimal128
 
 from .errors import ValidationError
 from .utils import _Empty, import_class
@@ -353,6 +354,29 @@ class URLField(Field):
             return super().from_data(value)
         except AttributeError:
             raise ValidationError(error='value is not URL')
+
+
+class DecimalTrafaret(t.Int):
+    """Trafaret class to check decimals."""
+
+    value_type = Decimal
+
+
+class DecimalField(Field):
+    """Decimal number field.
+
+    This field can be used only with MongoDB 3.4+.
+    """
+
+    def __init__(self, *, gt=None, lt=None, gte=None, lte=None, **kwargs):
+        super().__init__(DecimalTrafaret(gt=gt, lt=lt, gte=gte, lte=lte),
+                         **kwargs)
+
+    def to_son(self, value):
+        return Decimal128(value)
+
+    def from_son(self, value):
+        return value.to_decimal()
 
 
 class SynonymField(object):
