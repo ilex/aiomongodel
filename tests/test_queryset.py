@@ -102,6 +102,28 @@ async def test_update(db, users):
     assert await db.user.count({'active': True}) == 0
 
 
+async def test_insert_one(db):
+    u = User(name='totti', active=True, data=10)
+    res = await User.q(db).insert_one(u.to_son())
+    assert res == u._id
+
+    data = await db.user.find_one({'_id': res})
+    assert data['_id'] == 'totti'
+    assert data['active'] is True
+    assert data['data'] == 10
+    assert data['posts'] == []
+
+
+async def test_insert_many(db):
+    u1 = User(name='totti', active=True, data=10)
+    u2 = User(name='francesco', active=False)
+    res = await User.q(db).insert_many([u1.to_son(), u2.to_son()])
+    assert res[0] == u1._id
+    assert res[1] == u2._id
+
+    assert await db.user.count() == 2
+
+
 async def test_find_one(db, users):
     user = await User.q(db).find_one({'_id': 'totti'})
     assert isinstance(user, User)
@@ -131,13 +153,16 @@ async def test_find(db):
 
 
 async def test_find_to_list(db, users):
-    users = await User.q(db).find({}).to_list(10)
+    cur = User.q(db).find({})
+    users = await cur.to_list(10)
     assert isinstance(users, list)
     assert len(users) == 4
     assert isinstance(users[0], User)
     assert isinstance(users[1], User)
     assert isinstance(users[2], User)
     assert isinstance(users[3], User)
+
+    assert await cur.to_list(10) == []
 
 
 async def test_find_limit(db, users):

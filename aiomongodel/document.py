@@ -13,7 +13,23 @@ from aiomongodel.utils import snake_case
 
 
 class Meta:
-    """Storage for Document meta info."""
+    """Storage for Document meta info.
+
+    Attributes:
+        collection_name: Name of the document's db collection.
+        indexes: List of ``pymongo.IndexModel`` for collection.
+        query_class: Query set class to query documents.
+        default_query: Each query in query set will be extended using this
+            query through ``$and`` operator.
+        default_sort: Default sort expression to order documents in ``find``.
+        fields: OrderedDict of document fields as ``{field_name => field}``.
+        fields_synonyms: Dict of synonyms for field
+            as ``{field_name => synonym_name}``.
+        codec_options: Collection's codec options.
+        read_preference: Collection's read preference.
+        write_concern: Collection's write concern.
+        read_concern: Collection's read concern.
+    """
 
     OPTIONS = {'query_class', 'collection_name',
                'default_query', 'default_sort',
@@ -47,6 +63,14 @@ class Meta:
                 'Unrecognized Meta options: {0}.'.format(', '.join(diff)))
 
     def collection(self, db):
+        """Get collection for documents.
+
+        Args:
+            db: Database object.
+
+        Returns:
+            Collection object.
+        """
         return db.get_collection(
             self.collection_name,
             read_preference=self.read_preference,
@@ -56,6 +80,7 @@ class Meta:
 
     @property
     def trafaret(self):
+        """Return document's trafaret."""
         if self._trafaret is not None:
             return self._trafaret
 
@@ -76,7 +101,7 @@ class BaseDocumentMeta(type):
     def __new__(mcls, name, bases, namespace):
         """Create new Document class.
 
-        Gather fields, create trafaret, set document meta.
+        Gather meta options, gather fields, set document's meta.
         """
         new_class = super().__new__(mcls, name, bases, namespace)
 
@@ -96,6 +121,7 @@ class BaseDocumentMeta(type):
 
     @classmethod
     def _get_fields(mcls, new_class):
+        """Gather fields and fields' synonyms."""
         # we should search for fields in all bases classes in reverse order
         # than python search for attributes so that fields could be
         # overwritten in subclasses.
@@ -123,7 +149,7 @@ class BaseDocumentMeta(type):
 
     @classmethod
     def _get_meta_options(mcls, new_class):
-        # get meta options from Meta class attribute
+        """Get meta options from Meta class attribute."""
         doc_meta_options = {}
         doc_meta = new_class.__dict__.get('Meta', None)
         if doc_meta:
@@ -135,7 +161,19 @@ class BaseDocumentMeta(type):
 
 
 class DocumentMeta(BaseDocumentMeta):
-    """Document metaclass."""
+    """Document metaclass.
+
+    This meta class add ``_id`` field if it is not specified in
+    document class.
+
+    Set collection name for document to snake case of the document class name
+    if it is not specified in Meta class attribute of a the document class.
+
+    Attributes:
+        query_class: Default query set class.
+        default_id_field: Field to use as ``_id`` field if it is not
+            specified in document class.
+    """
 
     query_class = MotorQuerySet
     default_id_field = ObjectIdField(name='_id', required=True,
@@ -216,45 +254,25 @@ class BaseDocument(object):
         if errors:
             raise ValidationError(error=errors)
 
-        """
-        meta = self.__class__.meta
-        for field_name, field in meta.fields.items():
-            with contextlib.suppress(KeyError):
-                setattr(self, field_name, kwargs[field_name])
-                continue
-
-            # if there was a KeyError try to use a synonym name of the field
-            try:
-                syn_field_name = meta.fields_synonyms[field_name]
-                setattr(self, field_name, kwargs[syn_field_name])
-            except KeyError:
-                # for required field try to use a default value
-                if field.required:
-                    if field.default is _Empty:
-                        raise ValidationError(
-                            ('A required field {0}.{1} should be provided '
-                             'with an explicit value or have '
-                             'a default value.').format(
-                                 self.__class__.__name__, field_name))
-                    setattr(self, field_name, field.default)
-        """
     def _get_field_value_from_data(self, data, field_name):
         """Retrieve value from data for given field_name.
 
         Try use synonym name if field's name is not in data.
 
         Args:
-            data (dict): Data in form field_name -> value.
+            data (dict): Data in form {field_name => value}.
             field_name (str): Field's name.
 
         Raises:
-            KeyError: If field_name has no value in data.
+            KeyError: If there is no value in data for given field_name.
         """
         with contextlib.suppress(KeyError):
             return data[field_name]
+        # try synonym name
         return data[self.__class__.meta.fields_synonyms[field_name]]
 
     def _set_son(self, data):
+        """Set document's data using mongo data."""
         self._data = OrderedDict()
         for field_name, field in self.meta.fields.items():
             with contextlib.suppress(KeyError):  # ignore missed fields
@@ -263,6 +281,7 @@ class BaseDocument(object):
         return self
 
     def to_son(self):
+        """Convert document to mongo format."""
         son = SON()
         for field_name, field in self.meta.fields.items():
             if field_name in self._data:
@@ -272,12 +291,31 @@ class BaseDocument(object):
 
     @classmethod
     def from_son(cls, data):
+        """Create document from mongo data.
+
+        This method does not perform data validation and should be used only
+        for data loaded from mongo db (we suppose that data stored in db is
+        correct).
+
+        Returns:
+            Document instance.
+        """
         inst = cls(_empty=True)
         inst._set_son(data)
         return inst
 
     @classmethod
     def from_data(cls, data):
+        """Create document from user provided data.
+
+        This method performs data validation.
+
+        Retuns:
+            Document isinstance.
+
+        Raises:
+            ValidationError: If data is not valid.
+        """
         try:
             return cls(**data)
         except TypeError:
@@ -286,28 +324,113 @@ class BaseDocument(object):
 
 
 class Document(BaseDocument, metaclass=DocumentMeta):
-    """Base Document class."""
+    """Base class for documents.
+
+    Each document class should be defined by inheriting from this
+    class and specifying fields and optionally meta options using internal
+    Meta class.
+
+    Fields are inherited from base classes and can be overwritten.
+
+    Meta options are NOT inherited.
+
+    Possible meta options for ``class Meta``::
+
+        collection_name: Name of the document's db collection.
+        indexes: List of ``pymongo.IndexModel`` for collection.
+        query_class: Query set class to query documents.
+        default_query: Each query in query set will be extended using this
+            query through ``$and`` operator.
+        default_sort: Default sort expression to order documents in ``find``.
+        codec_options: Collection's codec options.
+        read_preference: Collection's read preference.
+        write_concern: Collection's write concern.
+        read_concern: Collection's read concern.
+
+    Note:: Indexes are not created automatically. Use
+        ``MotorQuerySet.create_indexes`` method to create document's indexes.
+
+    Example:
+
+    .. code-block:: python
+
+        from pymongo import IndexModel, ASCENDING, DESCENDING
+
+        class User(Document):
+            name = StrField(regexp=r'[a-zA-Z]{6,20}')
+            is_active = BoolField(default=True)
+            created = DateTimeField(default=lambda: datetime.utcnow())
+
+            class Meta:
+                # define a collection name
+                collection_name = 'users'
+                # define collection indexes. Use
+                # await User.q(db).create_indexes()
+                # to create them on application startup.
+                indexes = [
+                    IndexModel([('name', ASCENDING)], unique=True),
+                    IndexModel([('created', DESCENDING)])]
+                # order by `created` field by default
+                default_sort = [('created', DESCENDING)]
+
+        class ActiveUser(User):
+            is_active = BoolField(default=True, choices=[True])
+
+            class Meta:
+                collection_name = 'users'
+                # specify a default query to work ONLY with
+                # active users. So for example
+                # await ActiveUser.q(db).count({})
+                # will count ONLY active users.
+                default_query = {'is_active': True}
+
+    """
 
     @classmethod
     def q(cls, db):
+        """Return queryset object."""
         return cls.meta.query_class(cls, db)
 
     @classmethod
     def coll(cls, db):
+        """Return raw collection object."""
         return cls.meta.collection(db)
 
     @classmethod
     async def create(cls, db, **kwargs):
-        inst = cls.from_data(kwargs)
-        return await inst.save(db)
+        """Create document in mongodb.
 
-    async def save(self, db):
+        Args:
+            db: Database instance.
+            **kwargs: Document's fields values.
+
+        Returns:
+            Created document instance.
+
+        Raises:
+            ValidationError: If some fields are not valid.
+        """
+        inst = cls.from_data(kwargs)
+        return await inst.save(db, do_insert=True)
+
+    async def save(self, db, do_insert=False):
+        """Save document in mongodb.
+
+        Args:
+            db: Database instance.
+            do_insert (bool): If ``True`` always perform ``insert_one``, else
+                perform ``replace_one`` with ``upsert=True``.
+        """
         data = self.to_son()
-        cls = self.__class__
-        await cls.q(db).replace_one({'_id': data['_id']}, data, upsert=True)
+        if do_insert:
+            await self.__class__.q(db).insert_one(data)
+        else:
+            await self.__class__.q(db).replace_one({'_id': data['_id']},
+                                                   data, upsert=True)
         return self
 
     async def reload(self, db):
+        """Reload current object from mongodb."""
         cls = self.__class__
         data = await cls.coll(db).find_one(self.query_id)
         self._set_son(data)
@@ -336,6 +459,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         return self
 
     async def delete(self, db):
+        """Delete current object from db."""
         return await self.__class__.q(db).delete_one(self.query_id)
 
     @property
@@ -344,4 +468,4 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
 
 class EmbeddedDocument(BaseDocument, metaclass=EmbeddedDocumentMeta):
-    """Base Embedded Document class."""
+    """Base class for embedded documents."""

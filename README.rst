@@ -12,7 +12,6 @@ can be used with `asyncio`_ as well as with `Tornado`_.
 .. _MongoDB: https://www.mongodb.com/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 .. _Tornado: https://pypi.python.org/pypi/tornado
-.. _AIOHTTP: https://pypi.python.org/pypi/aiohttp
 
 Install
 =======
@@ -27,6 +26,11 @@ Getting Start
 Modeling
 --------
 
+To create a model just create a new model class, inherit it from 
+``aiomongodel.Document`` class, list all the model fields and place 
+a ``Meta`` class with model meta options. To create a subdocument, create
+a class with fields and inherit it from ``aiomongodel.EmbeddedDocument``.
+
 .. code-block:: python
 
     # models.py
@@ -39,7 +43,7 @@ Modeling
     from aiomongodel.fields import StrField, BoolField, ListField, EmbDocField
 
     class User(Document):
-        _id = StrField(regex=r'[a-zA-Z0-9_]{3, 20}')
+        _id = StrField(regexp=r'[a-zA-Z0-9_]{3, 20}')
         is_active = BoolField(default=True)
         posts = ListField(RefField('models.Post'), default=lambda: list())
         quote = StrField(required=False)
@@ -164,6 +168,11 @@ Querying
 Models Inheritance
 ------------------
 
+A hierarchy of models can be built by inheriting one model from another.
+A ``aiomongodel.Document`` class should be somewhere in hierarchy for model
+adn ``aiomongodel.EmbeddedDocument`` for subdocuments. 
+Note that fields are inherited but meta options are not. 
+
 .. code-block:: python
     
     class Mixin:
@@ -179,6 +188,10 @@ Models Inheritance
     class OtherChild(Child):
         # also has rate and name fields
         value = FloatField() # overwrite value field from Mixin
+
+    class SubDoc(Mixin, EmbeddedDocument):
+        # has value field
+        pass
 
 Models Inheritance With Same Collection
 ---------------------------------------
@@ -205,7 +218,7 @@ Models Inheritance With Same Collection
                 return super(User, Admin).from_son(data)
 
     class Customer(User):
-        role = StrField(default='customer')  # overwrite role field
+        role = StrField(default='customer', choices=['customer'])  # overwrite role field
         address = StrField()
 
         class Meta:
@@ -213,7 +226,7 @@ Models Inheritance With Same Collection
             default_query = {User.role.s: 'customer'}
 
     class Admin(User):
-        role = StrField(default='admin')  # overwrite role field
+        role = StrField(default='admin', choices=['admin'])  # overwrite role field
         rights = ListField(StrField(), default=lambda: list())
 
         class Meta:
