@@ -3,6 +3,10 @@ import functools
 import sys
 import textwrap
 
+import pymongo.errors
+
+from aiomongodel.errors import DocumentNotFoundError, DuplicateKeyError
+
 
 PY_36 = sys.version_info >= (3, 6)
 
@@ -52,40 +56,95 @@ class MotorQuerySet(object):
         return res.deleted_count if res.acknowledged else None
 
     async def replace_one(self, query, *args, **kwargs):
-        """Replace one document."""
-        res = await self.collection.replace_one(
-            self._update_query(query), *args, **kwargs)
+        """Replace one document.
+
+        Returns:
+            int: Number of modified documents.
+
+        Raises:
+            aiomongodel.errors.DuplicateKeyError: On duplicate key error.
+        """
+        try:
+            res = await self.collection.replace_one(
+                self._update_query(query), *args, **kwargs)
+        except pymongo.errors.DuplicateKeyError as e:
+            raise DuplicateKeyError(str(e)) from e
         return res.modified_count if res.acknowledged else None
 
     async def update_one(self, query, *args, **kwargs):
-        """Update one document."""
-        res = await self.collection.update_one(
-            self._update_query(query), *args, **kwargs)
+        """Update one document.
+
+        Returns:
+            int: Number of modified documents.
+
+        Raises:
+            aiomongodel.errors.DuplicateKeyError: On duplicate key error.
+        """
+        try:
+            res = await self.collection.update_one(
+                self._update_query(query), *args, **kwargs)
+        except pymongo.errors.DuplicateKeyError as e:
+            raise DuplicateKeyError(str(e)) from e
         return res.modified_count if res.acknowledged else None
 
     async def update_many(self, query, *args, **kwargs):
-        """Update many documents."""
-        res = await self.collection.update_many(
-            self._update_query(query), *args, **kwargs)
+        """Update many documents.
+
+        Returns:
+            int: Number of modified documents.
+
+        Raises:
+            aiomongodel.errors.DuplicateKeyError: On duplicate key error.
+        """
+        try:
+            res = await self.collection.update_many(
+                self._update_query(query), *args, **kwargs)
+        except pymongo.errors.DuplicateKeyError as e:
+            raise DuplicateKeyError(str(e)) from e
         return res.modified_count if res.acknowledged else None
 
     async def insert_one(self, *args, **kwargs):
-        """Insert one document."""
-        res = await self.collection.insert_one(*args, **kwargs)
+        """Insert one document.
+
+        Returns:
+            Inserted ``_id`` value.
+
+        Raises:
+            aiomongodel.errors.DuplicateKeyError: On duplicate key error.
+        """
+        try:
+            res = await self.collection.insert_one(*args, **kwargs)
+        except pymongo.errors.DuplicateKeyError as e:
+            raise DuplicateKeyError(str(e)) from e
         return res.inserted_id if res.acknowledged else None
 
     async def insert_many(self, *args, **kwargs):
-        """Insert many documents."""
+        """Insert many documents.
+
+        Returns:
+            list: List of inserted ``_id`` values.
+        """
         res = await self.collection.insert_many(*args, **kwargs)
         return res.inserted_ids if res.acknowledged else None
 
     async def find_one(self, query={}, *args, **kwargs):
-        """Find one document."""
+        """Find one document.
+
+        Arguments are the same as for ``motor.Collection.find_one``.
+        This method does not returns ``None`` if there is no documents for
+        given query but raises ``aiomongodel.errors.DocumentNotFoundError``.
+
+        Returns:
+            Document model instance.
+
+        Raises:
+            aiomongodel.errors.DocumentNotFoundError: If there is no documents
+                for given query.
+        """
         data = await self.collection.find_one(
             self._update_query(query), *args, **kwargs)
         if data is None:
-            # TODO: raise NotFoundError?
-            return None
+            raise DocumentNotFoundError()
 
         return self.doc_class.from_son(data)
 
@@ -151,6 +210,9 @@ class MotorQuerySetCursor(object):
 
         Args:
             length: Number of items to return.
+
+        Returns:
+            list: List of document model isinstances.
         """
         data = await self.cursor.to_list(length)
         return [self.doc_class.from_son(item) for item in data]

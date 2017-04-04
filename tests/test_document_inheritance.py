@@ -1,6 +1,8 @@
+import pytest
 from pymongo import ASCENDING
 
 from aiomongodel import Document, EmbeddedDocument
+from aiomongodel.errors import DocumentNotFoundError
 from aiomongodel.fields import IntField, StrField, FloatField, SynonymField
 
 
@@ -219,7 +221,8 @@ async def test_document_inheritance_same_collection(db):
     await Admin(name='Admin').save(db)
     await Customer(name='Customer', address='Address').save(db)
 
-    assert await Customer.q(db).get('Admin') is None
+    with pytest.raises(DocumentNotFoundError):
+        await Customer.q(db).get('Admin')
 
     customers = await Customer.q(db).find({}).to_list(10)
     assert len(customers) == 1

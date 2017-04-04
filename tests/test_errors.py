@@ -1,8 +1,9 @@
 import pytest
+import pymongo.errors
 from bson import ObjectId
 
 from aiomongodel import Document, EmbeddedDocument
-from aiomongodel.errors import ValidationError
+from aiomongodel.errors import ValidationError, DuplicateKeyError
 from aiomongodel.fields import (
     FloatField, StrField, IntField, EmbDocField, RefField, ListField)
 
@@ -66,3 +67,21 @@ def test_validation_errors(data, expected):
 
     err = excinfo.value.as_dict()
     assert err == expected
+
+
+@pytest.mark.parametrize('message, index_name', [
+    (("E11000 duplicate key error collection: test.xxx index: "
+      "_id_ dup key: { : ObjectId('58e351927e59226c50050cff') }"),
+     '_id_'),
+    (("E11000 duplicate key error collection: test.xxx index: "
+      "my_index dup key: { : 1 }"),
+     'my_index'),
+    ('Wrong exception string', None)
+])
+def test_duplicate_key_error(message, index_name):
+    err = DuplicateKeyError(message)
+
+    assert isinstance(err, pymongo.errors.DuplicateKeyError)
+
+    assert str(err) == message
+    assert err.index_name == index_name

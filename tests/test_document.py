@@ -7,6 +7,7 @@ from pymongo import IndexModel, ASCENDING, WriteConcern
 
 from aiomongodel import Document
 from aiomongodel.document import Meta
+from aiomongodel.errors import DocumentNotFoundError
 from aiomongodel.fields import StrField, ObjectIdField, SynonymField, IntField
 from aiomongodel.queryset import MotorQuerySet
 
@@ -21,6 +22,9 @@ async def test_create(db):
     assert u.posts == []
     assert u.data is None
 
+    data = await db.user.find_one({'_id': 'francesco'})
+    assert u.to_son() == data
+
 
 async def test_save(db):
     u = await User(name='francesco').save(db)
@@ -30,23 +34,41 @@ async def test_save(db):
     assert u.posts == []
     assert u.data is None
 
+    data = await db.user.find_one({'_id': 'francesco'})
+    assert u.to_son() == data
+
+
+async def test_save_do_insert(db):
+    u = await User(name='francesco').save(db, do_insert=True)
+    assert u._id == 'francesco'
+    assert u.name == 'francesco'
+    assert u.active is True
+    assert u.posts == []
+    assert u.data is None
+
+    data = await db.user.find_one({'_id': 'francesco'})
+    assert u.to_son() == data
+
 
 async def test_modify_and_save(db):
     u = await User(name='francesco').save(db)
+    _id = u._id
 
-    u.name = 'totti'
     u.active = False
     u.data = 10
 
     await u.save(db)
-    assert u.name == 'totti'
+    assert u.name == 'francesco'
     assert u.active is False
     assert u.data == 10
 
     await u.reload(db)
-    assert u.name == 'totti'
+    assert u.name == 'francesco'
     assert u.active is False
     assert u.data == 10
+
+    data = await db.user.find_one({'_id': _id})
+    assert u.to_son() == data
 
 
 async def test_get(db):
@@ -97,8 +119,8 @@ async def test_delete(db):
     assert u._id == 'totti'
 
     await u.delete(db)
-    u = await User.q(db).get('totti')
-    assert u is None
+    with pytest.raises(DocumentNotFoundError):
+        u = await User.q(db).get('totti')
 
     u = await User.q(db).get('francesco')
     assert u._id == 'francesco'

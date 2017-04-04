@@ -1,4 +1,7 @@
 """Aiomongodel errors and exceptions."""
+import re
+
+import pymongo.errors
 
 
 class AioMongodelException(Exception):
@@ -10,7 +13,7 @@ class Error(AioMongodelException):
 
 
 class ValidationError(Error):
-    """Validation Error.
+    """Raised on model validation error.
 
     Attributes:
         error: Can contain a simple error string or
@@ -18,7 +21,7 @@ class ValidationError(Error):
     """
 
     def __init__(self, error=None):
-        """Create Validation Error.
+        """Create validation error.
 
         Args:
             error: Can be string or dict of {key => ValidationError}
@@ -42,3 +45,31 @@ class ValidationError(Error):
 
     def __repr__(self):
         return 'ValidationError({0})'.format(str(self))
+
+
+class DocumentNotFoundError(Error):
+    """Raised when document is not found in db."""
+
+
+class DuplicateKeyError(Error, pymongo.errors.DuplicateKeyError):
+    """Raised on unique key constraint error."""
+
+    index_name_regexp = re.compile(r': ([^ ]+) dup key:')
+
+    def __init__(self, message):
+        """Create error.
+
+        Args:
+            message (str): String representation of
+                ``pymongo.errors.DuplicateKeyError``.
+        """
+        self.message = message
+
+    @property
+    def index_name(self):
+        """Name of the unique index which raised error."""
+        m = self.index_name_regexp.search(self.message)
+        try:
+            return m.group(1)
+        except Exception:
+            return None

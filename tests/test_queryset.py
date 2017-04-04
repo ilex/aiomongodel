@@ -3,7 +3,9 @@ import textwrap
 
 import pytest
 from pymongo import ASCENDING, DESCENDING, WriteConcern
+import pymongo.errors
 
+from aiomongodel.errors import DocumentNotFoundError, DuplicateKeyError
 from aiomongodel.queryset import MotorQuerySet, MotorQuerySetCursor
 
 from models import User, Post
@@ -353,14 +355,16 @@ async def test_default_query_update_many(db, users):
 
 
 async def test_default_query_find_one(db, users):
-    assert await ActiveUser.q(db).find_one({'_id': 'xxx'}) is None
+    with pytest.raises(DocumentNotFoundError):
+        await ActiveUser.q(db).find_one({'_id': 'xxx'})
     user = await ActiveUser.q(db).find_one({'_id': 'totti'})
     assert isinstance(user, ActiveUser)
     assert user.active is True
 
 
 async def test_default_query_get(db, users):
-    assert await ActiveUser.q(db).get('xxx') is None
+    with pytest.raises(DocumentNotFoundError):
+        await ActiveUser.q(db).get('xxx')
     user = await ActiveUser.q(db).get('totti')
     assert isinstance(user, ActiveUser)
     assert user.active is True
@@ -435,3 +439,40 @@ async def test_queryset_cursor_clone(db):
     assert cursor.doc_class == clone.doc_class
     assert cursor.cursor != clone.cursor
     assert clone.cursor.collection == clone.cursor.collection
+
+
+async def test_unique_key_error(db):
+    await Post.q(db).create_indexes()
+
+    await Post(title='xxx', author='totti').save(db, do_insert=True)
+    yyy = await Post(title='yyy', author='totti').save(db, do_insert=True)
+
+    data = Post(title='xxx', author='totti').to_son()
+
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        await Post.q(db).insert_one(data)
+    with pytest.raises(DuplicateKeyError) as excinfo:
+        await Post.q(db).insert_one(data)
+    assert excinfo.value.index_name == 'title_index'
+
+    yyy_data = yyy.to_son()
+    yyy_data['title'] = 'xxx'
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        await Post.q(db).replace_one({Post.title.s: 'yyy'}, yyy_data)
+    with pytest.raises(DuplicateKeyError) as excinfo:
+        await Post.q(db).replace_one({Post.title.s: 'yyy'}, yyy_data)
+    assert excinfo.value.index_name == 'title_index'
+
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        await Post.q(db).update_one({Post.title.s: 'yyy'},
+                                    {'$set': {Post.title.s: 'xxx'}})
+    with pytest.raises(DuplicateKeyError) as excinfo:
+        await Post.q(db).update_one({Post.title.s: 'yyy'},
+                                    {'$set': {Post.title.s: 'xxx'}})
+    assert excinfo.value.index_name == 'title_index'
+
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        await Post.q(db).update_many({}, {'$set': {Post.title.s: 'xxx'}})
+    with pytest.raises(DuplicateKeyError) as excinfo:
+        await Post.q(db).update_many({}, {'$set': {Post.title.s: 'xxx'}})
+    assert excinfo.value.index_name == 'title_index'

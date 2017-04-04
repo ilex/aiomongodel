@@ -219,7 +219,7 @@ class BaseDocument(object):
     """Base class for Document and EmbeddedDocument."""
 
     def __init__(self, *, _empty=False, **kwargs):
-        r"""Initialize document.
+        """Initialize document.
 
         Args:
             _empty (bool): If True return an empty document without setting
