@@ -96,7 +96,10 @@ CRUD
 
         # CREATE
         # create using save
-        u = await User(name='Alexandro').save(db)
+        # Note: if do_insert=False (default) save performs a replace
+        # with upsert=True, so it does not raise if _id already exists
+        # in db but replace document with that _id.
+        u = await User(name='Alexandro').save(db, do_insert=True)
         assert u.name == 'Alexandro'
         assert u._id == 'Alexandro'
         assert u.is_active is True
@@ -129,7 +132,8 @@ CRUD
         await u.save(db)
         assert (await User.q(db).get('Ihor')).is_active is True
         # using update (without data validation)
-        u.update(db, {'$push': {User.posts.s: ObjectId()}})
+        # object is reloaded from db after update.
+        await u.update(db, {'$push': {User.posts.s: ObjectId()}})
 
         # DELETE
         u = await User.q(db).get('Ihor')
@@ -151,7 +155,7 @@ Querying
         cursor = User.q(db).find({}, {'_id': 1}).skip(1).limit(2)
         async for user in cursor:
             print(user.name)
-            assert user.is_active is None
+            assert user.is_active is None  # we used projection
 
         # find one
         user = await User.q(db).find_one({User.name.s: 'Alexandro'})

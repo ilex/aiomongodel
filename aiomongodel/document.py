@@ -29,6 +29,7 @@ class Meta:
         read_preference: Collection's read preference.
         write_concern: Collection's write concern.
         read_concern: Collection's read concern.
+
     """
 
     OPTIONS = {'query_class', 'collection_name',
@@ -173,6 +174,7 @@ class DocumentMeta(BaseDocumentMeta):
         query_class: Default query set class.
         default_id_field: Field to use as ``_id`` field if it is not
             specified in document class.
+
     """
 
     query_class = MotorQuerySet
@@ -217,17 +219,18 @@ class BaseDocument(object):
     """Base class for Document and EmbeddedDocument."""
 
     def __init__(self, *, _empty=False, **kwargs):
-        """Initialize document.
+        r"""Initialize document.
 
         Args:
             _empty (bool): If True return an empty document without setting
                 any field.
-            **kwargs: Fields values to set. Keys should be fields' `name`s not
-                `mongo_name`s.
+            **kwargs: Fields values to set. Each key should be a field name
+                not a mongo name of the field.
 
         Raises:
             ValidationError: If there is an error during setting fields
                 with values.
+
         """
         self._data = OrderedDict()
         if _empty:
@@ -310,7 +313,7 @@ class BaseDocument(object):
 
         This method performs data validation.
 
-        Retuns:
+        Returns:
             Document isinstance.
 
         Raises:
@@ -334,20 +337,22 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
     Meta options are NOT inherited.
 
-    Possible meta options for ``class Meta``::
+    Possible meta options for ``class Meta``:
 
-        collection_name: Name of the document's db collection.
-        indexes: List of ``pymongo.IndexModel`` for collection.
-        query_class: Query set class to query documents.
-        default_query: Each query in query set will be extended using this
-            query through ``$and`` operator.
-        default_sort: Default sort expression to order documents in ``find``.
-        codec_options: Collection's codec options.
-        read_preference: Collection's read preference.
-        write_concern: Collection's write concern.
-        read_concern: Collection's read concern.
+    - ``collection_name``: Name of the document's db collection.
+    - ``indexes``: List of ``pymongo.IndexModel`` for collection.
+    - ``query_class``: Query set class to query documents.
+    - ``default_query``: Each query in query set will be extended using
+      this query through ``$and`` operator.
+    - ``default_sort``: Default sort expression to order documents in
+      ``find``.
+    - ``codec_options``: Collection's codec options.
+    - ``read_preference``: Collection's read preference.
+    - ``write_concern``: Collection's write concern.
+    - ``read_concern``: Collection's read concern.
 
-    Note:: Indexes are not created automatically. Use
+    .. note::
+        Indexes are not created automatically. Use
         ``MotorQuerySet.create_indexes`` method to create document's indexes.
 
     Example:
@@ -440,6 +445,9 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         """Update current object using query.
 
         Usage:
+
+        .. code-block:: python
+
             class User(Document):
                 name = StrField()
                 value = IntField(default=0)
@@ -449,6 +457,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
                 await u.update(db,
                                {'$set': {User.name.s: 'yyy'},
                                 '$inc': {User.value.s: 1}})
+
         """
         cls = self.__class__
         count = await cls.q(db).update_one(self.query_id, update_document)

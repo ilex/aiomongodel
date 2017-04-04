@@ -21,6 +21,7 @@ class Field(object):
         default: Default value for field.
         trafaret: Trafaret of the field.
         choices (list): List of choices for a field.
+
     """
 
     def __init__(self, trafaret, *, required=True, default=_Empty,
@@ -34,15 +35,20 @@ class Field(object):
             default: Default value for a field. When document has no value for
                 field in ``__init__`` it try to use default value (if it is
                 not ``_Empty``). Defaults to ``_Empty``.
-                Note:: Default value is ignored if field is not required.
-                Note:: Default can be a value or a callable with no arguments.
+                .. note:: Default value is ignored if field is not required.
+                .. note::
+
+                    Default can be a value or a callable with no arguments.
             mongo_name (str): Name of the field in MongoDB. Defaults to None.
-                Note:: If ``mongo_name`` is None it is set to ``name`` of the
+                .. note::
+
+                    If ``mongo_name`` is None it is set to ``name`` of the
                     field.
             name (str): Name of the field. Should not be used explicitly as
                 it is set by metaclass. Defaults to ``None``.
             choices (list): List of possible values for field. Defaults
                 to ``None``.
+
         """
         self.mongo_name = mongo_name
         self.name = name
@@ -124,7 +130,9 @@ class Field(object):
             User.q(db).find({User.name.s: 'Francesco', User.is_admin.s: True},
                             {User.posts.s: 1, User._id.s: 0})
 
-        Note:: Field's ``name`` and ``mongo_name`` could be different so
+        .. note::
+
+            Field's ``name`` and ``mongo_name`` could be different so
             ``User.is_admin.s`` could be for example ``'isadm'``.
         """
         return self.mongo_name
@@ -157,7 +165,9 @@ class StrField(Field):
                 Defaults to ``None``
             **kwargs: Other arguments from ``Field``.
 
-        Note:: If ``regex`` is given ``allow_blank``, ``min_length`` and
+        .. note::
+
+            If ``regex`` is given ``allow_blank``, ``min_length`` and
             ``max_length`` are ignored.
         """
         if regexp is None:
@@ -253,13 +263,20 @@ class CompoundField(Field):
     which could contain embedded documents as their elements.
     This class makes it possible to build a complex fields name using
     attribute syntax and `s` property, i.e.:
+
+    .. code-block:: python
+
         assert Comment.author.name.s == 'author.name'
         assert Article.tags._id.s == 'tags._id'
         assert Hotel.rooms.category.s == 'rooms.category'
         assert Hotel.rooms.category.name.s == 'rooms.category.name'
 
     so you can use them to build queries:
+
+    .. code-block:: python
+
         Hotel.q(db).find({Hotel.rooms.category.name.s: 'Lux'})
+
     """
 
     def __init__(self, document_class, base_document_class, **kwargs):
