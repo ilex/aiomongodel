@@ -40,10 +40,12 @@ a class with fields and inherit it from ``aiomongodel.EmbeddedDocument``.
     from pymongo import IndexModel, DESCENDING 
 
     from aiomongodel import Document, EmbeddedDocument
-    from aiomongodel.fields import StrField, BoolField, ListField, EmbDocField
+    from aiomongodel.fields import (
+        StrField, BoolField, ListField, EmbDocField, RefField, SynonymField, 
+        IntField, FloatField, DateTimeField, ObjectIdField)
 
     class User(Document):
-        _id = StrField(regexp=r'[a-zA-Z0-9_]{3, 20}')
+        _id = StrField(regex=r'[a-zA-Z0-9_]{3, 20}')
         is_active = BoolField(default=True)
         posts = ListField(RefField('models.Post'), default=lambda: list())
         quote = StrField(required=False)
@@ -145,6 +147,60 @@ CRUD
     db = client.aiomongodel_test
     loop.run_until_complete(go(db))
 
+Validation
+----------
+Use model's ``validate`` method to validate model's data. If
+there are any invalid data an ``aiomongodel.errors.ValidationError``
+will raise.
+
+.. note:: 
+
+    Creating model object or assigning it with invalid data does
+    not raise errors! Be careful while saving model without validation.
+
+.. code-block:: python
+
+    class Model(Document):
+        name = StrField(max_length=7)
+        value = IntField(gt=5, lte=13)
+        data = FloatField()
+
+    def go():
+        m = Model(name='xxx', value=10, data=1.6)
+        # validate data
+        # should not raise any error
+        m.validate()
+
+        # invalid data
+        # note that there are no errors while creating
+        # model with invalid data
+        invalid = Model(name='too long string', value=0)
+        try:
+            invalid.validate()
+        except aiomongodel.errors.ValidationError as e:
+            assert e.as_dict() == {
+                'name': 'length is greater than 7',
+                'value': 'value should be greater than 5',
+                'data': 'field is required'
+            }
+            
+            # using translation - you can translate messages
+            # to your language or modify them
+            translation = {
+                "field is required": "This field is required",
+                "length is greater than {constraint}": ("Length of the field "
+                                                        "is greater than "
+                                                        "{constraint} characters"),
+                # see all error messages in ValidationError docs
+                # for missed messages default messages will be used
+            }
+            assert e.as_dict(translation=translation) == {
+                'name': 'Length of the field is greater than 7 characters',
+                'value': 'value should be greater than 5',
+                'data': 'This field is required'
+            }
+ 
+
 Querying
 --------
 
@@ -214,12 +270,12 @@ Models Inheritance With Same Collection
             collection_name = 'users'
         
         @classmethod
-        def from_son(cls, data):
+        def from_mongo(cls, data):
             # create appropriate model when loading from db
             if data['role'] == 'customer':
-                return super(User, Customer).from_son(data)
+                return super(User, Customer).from_mongo(data)
             if data['role'] == 'admin':
-                return super(User, Admin).from_son(data)
+                return super(User, Admin).from_mongo(data)
 
     class Customer(User):
         role = StrField(default='customer', choices=['customer'])  # overwrite role field

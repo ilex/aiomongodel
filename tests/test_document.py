@@ -1,13 +1,12 @@
 import pytest
 from datetime import datetime
 
-import trafaret as t
 from bson import ObjectId
 from pymongo import IndexModel, ASCENDING, WriteConcern
 
 from aiomongodel import Document
 from aiomongodel.document import Meta
-from aiomongodel.errors import DocumentNotFoundError
+from aiomongodel.errors import DocumentNotFoundError, ValidationError
 from aiomongodel.fields import StrField, ObjectIdField, SynonymField, IntField
 from aiomongodel.queryset import MotorQuerySet
 
@@ -23,7 +22,7 @@ async def test_create(db):
     assert u.data is None
 
     data = await db.user.find_one({'_id': 'francesco'})
-    assert u.to_son() == data
+    assert u.to_mongo() == data
 
 
 async def test_save(db):
@@ -35,7 +34,7 @@ async def test_save(db):
     assert u.data is None
 
     data = await db.user.find_one({'_id': 'francesco'})
-    assert u.to_son() == data
+    assert u.to_mongo() == data
 
 
 async def test_save_do_insert(db):
@@ -47,7 +46,7 @@ async def test_save_do_insert(db):
     assert u.data is None
 
     data = await db.user.find_one({'_id': 'francesco'})
-    assert u.to_son() == data
+    assert u.to_mongo() == data
 
 
 async def test_modify_and_save(db):
@@ -68,7 +67,7 @@ async def test_modify_and_save(db):
     assert u.data == 10
 
     data = await db.user.find_one({'_id': _id})
-    assert u.to_son() == data
+    assert u.to_mongo() == data
 
 
 async def test_get(db):
@@ -165,19 +164,19 @@ def test_document_with_explicit_str_id():
     assert str(excinfo.value) == expected
 
 
-def test_to_son():
+def test_to_mongo():
     u = User(name='totti')
-    assert u.to_son() == {'_id': 'totti', 'active': True, 'posts': []}
+    assert u.to_mongo() == {'_id': 'totti', 'active': True, 'posts': []}
 
     comment = Comment(_id=ObjectId('58ce6d537e592254b67a503d'),
                       body='Comment',
                       author=u)
-    assert comment.to_son() == {'_id': ObjectId('58ce6d537e592254b67a503d'),
-                                'body': 'Comment',
-                                'user': 'totti'}
+    assert comment.to_mongo() == {'_id': ObjectId('58ce6d537e592254b67a503d'),
+                                  'body': 'Comment',
+                                  'user': 'totti'}
 
     post = Post(title='Title', author='totti', comments=[comment])
-    son = post.to_son()
+    son = post.to_mongo()
     assert isinstance(son['_id'], ObjectId)
     assert son['title'] == 'Title'
     assert son['views'] == 0
@@ -236,7 +235,7 @@ def test_document_meta():
     assert meta.default_query == {'value': 1}
 
 
-def test_document_meta_wrong_option():
+def test_document_meta_invalid_option():
     with pytest.raises(ValueError) as excinfo:
         class Doc(Document):
             class Meta:
@@ -247,26 +246,47 @@ def test_document_meta_wrong_option():
 
 
 def test_validate():
-    data = User.meta.trafaret.check(
-        {'_id': 'totti', 'active': True, 'posts': [], 'data': 10})
-    assert data == {'_id': 'totti', 'active': True, 'posts': [], 'data': 10}
+    # should not raise any error
+    User(name='totti', active=True, data=10).validate()
 
-    with pytest.raises(t.DataError):
-        User.meta.trafaret.check({'_id': 'totti', 'posts': 4})
-
-    post_data = {
-        '_id': ObjectId(),
-        'title': 'Title',
-        'views': 1,
-        'created': datetime.utcnow(),
-        'rate': 1.6,
-        'author': 'totti',
-        'comments': [{'_id': ObjectId(), 'body': 'Comment', 'author': 'xxx'}]
+    user = User(name='totti', posts=4)
+    with pytest.raises(ValidationError) as excinfo:
+        user.validate()
+    assert excinfo.value.as_dict() == {
+        'posts': 'invalid value type'
     }
-    assert Post.meta.trafaret.check(post_data) == post_data
 
-    post_data['author'] = 1
-    post_data['views'] = 'xxx'
-    post_data['comments'][0]['_id'] = 'wrong'
-    with pytest.raises(t.DataError):
-        Post.meta.trafaret.check(post_data)
+    comment = Comment(_id=ObjectId(), body='')
+    with pytest.raises(ValidationError) as excinfo:
+        comment.validate()
+    assert excinfo.value.as_dict() == {
+        'body': 'blank value is not allowed',
+        'author': 'field is required'
+    }
+
+    post = Post(author=user, comments=[comment])
+    with pytest.raises(ValidationError) as excinfo:
+        post.validate()
+    assert excinfo.value.as_dict() == {
+        'title': 'field is required',
+        'comments': {
+            0: {
+                'body': 'blank value is not allowed',
+                'author': 'field is required'
+            }
+        }
+    }
+
+
+def test_populate_with_data():
+    user = User(name='totti', posts=[], active=False)
+    assert user.name == 'totti'
+    assert user.active is False
+    assert user.data is None
+    assert user.posts == []
+
+    user.populate_with_data({'name': 'francesco', 'data': 10})
+    assert user.name == 'francesco'
+    assert user.active is False
+    assert user.data == 10
+    assert user.posts == []

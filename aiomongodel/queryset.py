@@ -146,12 +146,12 @@ class MotorQuerySet(object):
         if data is None:
             raise DocumentNotFoundError()
 
-        return self.doc_class.from_son(data)
+        return self.doc_class.from_mongo(data)
 
     async def get(self, _id, *args, **kwargs):
         """Get document by its _id."""
         return await self.find_one(
-            {'_id': self.doc_class._id.to_son(_id)}, *args, **kwargs)
+            {'_id': self.doc_class._id.to_mongo(_id)}, *args, **kwargs)
 
     def find(self, query={}, *args, sort=None, **kwargs):
         """Find documents by query.
@@ -215,7 +215,7 @@ class MotorQuerySetCursor(object):
             list: List of document model isinstances.
         """
         data = await self.cursor.to_list(length)
-        return [self.doc_class.from_son(item) for item in data]
+        return [self.doc_class.from_mongo(item) for item in data]
 
     def clone(self):
         """Get copy of this cursor."""
@@ -225,7 +225,7 @@ class MotorQuerySetCursor(object):
         # for python >= 3.6 implement __aiter__ as async generator
         exec(textwrap.dedent("""
         async def __aiter__(self):
-            return (self.doc_class.from_son(item)
+            return (self.doc_class.from_mongo(item)
                     async for item in self.cursor)
         """), globals(), locals())
     else:
@@ -235,7 +235,7 @@ class MotorQuerySetCursor(object):
             return self
 
         async def __anext__(self):
-            return self.doc_class.from_son(await self.cursor.__anext__())
+            return self.doc_class.from_mongo(await self.cursor.__anext__())
         """), globals(), locals())
 
     def __getattr__(self, name):

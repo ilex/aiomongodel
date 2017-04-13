@@ -106,7 +106,7 @@ async def test_update(db, users):
 
 async def test_insert_one(db):
     u = User(name='totti', active=True, data=10)
-    res = await User.q(db).insert_one(u.to_son())
+    res = await User.q(db).insert_one(u.to_mongo())
     assert res == u._id
 
     data = await db.user.find_one({'_id': res})
@@ -119,7 +119,7 @@ async def test_insert_one(db):
 async def test_insert_many(db):
     u1 = User(name='totti', active=True, data=10)
     u2 = User(name='francesco', active=False)
-    res = await User.q(db).insert_many([u1.to_son(), u2.to_son()])
+    res = await User.q(db).insert_many([u1.to_mongo(), u2.to_mongo()])
     assert res[0] == u1._id
     assert res[1] == u2._id
 
@@ -447,7 +447,7 @@ async def test_unique_key_error(db):
     await Post(title='xxx', author='totti').save(db, do_insert=True)
     yyy = await Post(title='yyy', author='totti').save(db, do_insert=True)
 
-    data = Post(title='xxx', author='totti').to_son()
+    data = Post(title='xxx', author='totti').to_mongo()
 
     with pytest.raises(pymongo.errors.DuplicateKeyError):
         await Post.q(db).insert_one(data)
@@ -455,7 +455,7 @@ async def test_unique_key_error(db):
         await Post.q(db).insert_one(data)
     assert excinfo.value.index_name == 'title_index'
 
-    yyy_data = yyy.to_son()
+    yyy_data = yyy.to_mongo()
     yyy_data['title'] = 'xxx'
     with pytest.raises(pymongo.errors.DuplicateKeyError):
         await Post.q(db).replace_one({Post.title.s: 'yyy'}, yyy_data)

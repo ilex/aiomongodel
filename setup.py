@@ -4,7 +4,7 @@ import re
 from setuptools import setup, find_packages
 
 
-install_requires = ['trafaret==0.9.0', 'motor==1.1']
+install_requires = ['motor==1.1']
 
 
 tests_require = ['pytest']

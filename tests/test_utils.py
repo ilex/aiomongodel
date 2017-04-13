@@ -33,7 +33,7 @@ def test_import_class():
     utils.CLASSES_CACHE = {}
 
 
-def test_import_class_wrong_value():
+def test_import_class_invalid_value():
     with pytest.raises(ImportError) as excinfo:
         utils.import_class('Xxx')
 
@@ -47,7 +47,7 @@ def test_import_class_wrong_value():
     assert str(excinfo.value) == expected
 
 
-def test_import_class_wrong_class_name():
+def test_import_class_invalid_class_name():
     with pytest.raises(ImportError) as excinfo:
         utils.import_class('aiomongodel.WrongNameClass')
 
@@ -57,7 +57,7 @@ def test_import_class_wrong_class_name():
     assert 'aiomongodel.WrongNameClass' not in utils.CLASSES_CACHE
 
 
-def test_import_class_wrong_module_name():
+def test_import_class_invalid_module_name():
     with pytest.raises(ImportError) as excinfo:
         utils.import_class('wrong.module.Document')
 

@@ -8,7 +8,7 @@ Welcome to aiomongodel |release| documentation!
 
 Contents:
 
-:doc:`getting-started`
+:doc:`Getting started <getting-started>`
     Start here for a basic overview of using ``aiomongodel``.
 
 :doc:`api/index`

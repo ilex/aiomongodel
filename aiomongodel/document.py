@@ -2,8 +2,6 @@
 import contextlib
 from collections import OrderedDict
 
-import trafaret as t
-
 from bson import ObjectId, SON
 
 from aiomongodel.errors import ValidationError
@@ -47,7 +45,6 @@ class Meta:
         self.default_sort = kwargs.get('default_sort', None)
         self.fields = kwargs.get('fields', None)
         self.fields_synonyms = kwargs.get('fields_synonyms', None)
-        self._trafaret = None
         self.indexes = kwargs.get('indexes', None)
 
         self.codec_options = kwargs.get('codec_options', None)
@@ -78,20 +75,6 @@ class Meta:
             read_concern=self.read_concern,
             write_concern=self.write_concern,
             codec_options=self.codec_options)
-
-    @property
-    def trafaret(self):
-        """Return document's trafaret."""
-        if self._trafaret is not None:
-            return self._trafaret
-
-        doc_trafaret = {}
-        for key, item in self.fields.items():
-            t_key = t.Key(key, optional=(not item.required))
-            doc_trafaret[t_key] = item.trafaret
-
-        self._trafaret = t.Dict(doc_trafaret)
-        return self._trafaret
 
 
 class BaseDocumentMeta(type):
@@ -145,7 +128,7 @@ class BaseDocumentMeta(type):
                 elif isinstance(item, SynonymField):
                     synonyms[item] = name
 
-        return fields, {item.origin_field_name: name
+        return fields, {item.original_field_name: name
                         for item, name in synonyms.items()}
 
     @classmethod
@@ -226,36 +209,19 @@ class BaseDocument(object):
                 any field.
             **kwargs: Fields values to set. Each key should be a field name
                 not a mongo name of the field.
-
-        Raises:
-            ValidationError: If there is an error during setting fields
-                with values.
-
         """
         self._data = OrderedDict()
         if _empty:
             return
 
-        meta = self.__class__.meta
-        errors = {}
-        for field_name, field in meta.fields.items():
+        for field_name, field in self.meta.fields.items():
             try:
                 value = self._get_field_value_from_data(kwargs, field_name)
             except KeyError:
                 value = field.default
 
-            if value is _Empty:
-                if field.required:
-                    errors[field_name] = ValidationError('field is required')
-                continue
-
-            try:
+            if value is not _Empty:
                 setattr(self, field_name, value)
-            except ValidationError as e:
-                errors[field_name] = e
-
-        if errors:
-            raise ValidationError(error=errors)
 
     def _get_field_value_from_data(self, data, field_name):
         """Retrieve value from data for given field_name.
@@ -272,58 +238,92 @@ class BaseDocument(object):
         with contextlib.suppress(KeyError):
             return data[field_name]
         # try synonym name
-        return data[self.__class__.meta.fields_synonyms[field_name]]
+        return data[self.meta.fields_synonyms[field_name]]
 
-    def _set_son(self, data):
+    def _set_mongo_data(self, data):
         """Set document's data using mongo data."""
         self._data = OrderedDict()
         for field_name, field in self.meta.fields.items():
             with contextlib.suppress(KeyError):  # ignore missed fields
-                self._data[field_name] = field.from_son(data[field.mongo_name])
+                self._data[field_name] = field.from_mongo(
+                    data[field.mongo_name])
 
         return self
 
-    def to_son(self):
+    def populate_with_data(self, data):
+        """Populate document object with data.
+
+        Args:
+            data (dict): Document data in form {field_name => value}.
+
+        Returns:
+            Self instance.
+
+        Raises:
+            AttributeError: On wrong field name.
+        """
+        # TODO: should we ignore wrong field_names?
+        for field_name, value in data.items():
+            setattr(self, field_name, value)
+        return self
+
+    def to_mongo(self):
         """Convert document to mongo format."""
         son = SON()
         for field_name, field in self.meta.fields.items():
             if field_name in self._data:
-                son[field.mongo_name] = field.to_son(self._data[field_name])
+                son[field.mongo_name] = field.to_mongo(self._data[field_name])
 
         return son
 
     @classmethod
-    def from_son(cls, data):
+    def from_mongo(cls, data):
         """Create document from mongo data.
 
-        This method does not perform data validation and should be used only
-        for data loaded from mongo db (we suppose that data stored in db is
-        correct).
+        Args:
+            data (dict): SON data loaded from mongodb.
 
         Returns:
             Document instance.
         """
         inst = cls(_empty=True)
-        inst._set_son(data)
+        inst._set_mongo_data(data)
         return inst
 
     @classmethod
     def from_data(cls, data):
         """Create document from user provided data.
 
-        This method performs data validation.
+        Args:
+            data (dict): Data dict in form {field_name => value}.
 
         Returns:
             Document isinstance.
+        """
+        return cls(**data)
+
+    def validate(self):
+        """Validate document.
+
+        Returns:
+            Self instance.
 
         Raises:
-            ValidationError: If data is not valid.
+            ValidationError: If document's data is not valid.
         """
-        try:
-            return cls(**data)
-        except TypeError:
-            raise ValidationError(
-                "value can't be converted to {0}".format(cls.__name__))
+        errors = {}
+        for field_name, field in self.meta.fields.items():
+            try:
+                field.validate(self._data[field_name])
+            except ValidationError as e:
+                errors[field_name] = e
+            except KeyError:
+                if field.required:
+                    errors[field_name] = ValidationError('field is required')
+
+        if errors:
+            raise ValidationError(errors)
+        return self
 
 
 class Document(BaseDocument, metaclass=DocumentMeta):
@@ -362,7 +362,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         from pymongo import IndexModel, ASCENDING, DESCENDING
 
         class User(Document):
-            name = StrField(regexp=r'[a-zA-Z]{6,20}')
+            name = StrField(regex=r'^[a-zA-Z]{6,20}$')
             is_active = BoolField(default=True)
             created = DateTimeField(default=lambda: datetime.utcnow())
 
@@ -393,12 +393,26 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
     @classmethod
     def q(cls, db):
-        """Return queryset object."""
+        """Return queryset object.
+
+        Args:
+            db: Motor database object.
+
+        Returns:
+            MotorQuerySet: Queryset object.
+        """
         return cls.meta.query_class(cls, db)
 
     @classmethod
     def coll(cls, db):
-        """Return raw collection object."""
+        """Return raw collection object.
+
+        Args:
+            db: Motor database object.
+
+        Returns:
+            MotorCollection: Raw Motor collection object.
+        """
         return cls.meta.collection(db)
 
     @classmethod
@@ -426,7 +440,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
             do_insert (bool): If ``True`` always perform ``insert_one``, else
                 perform ``replace_one`` with ``upsert=True``.
         """
-        data = self.to_son()
+        data = self.to_mongo()
         if do_insert:
             await self.__class__.q(db).insert_one(data)
         else:
@@ -438,7 +452,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         """Reload current object from mongodb."""
         cls = self.__class__
         data = await cls.coll(db).find_one(self.query_id)
-        self._set_son(data)
+        self._set_mongo_data(data)
         return self
 
     async def update(self, db, update_document):
@@ -473,7 +487,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
     @property
     def query_id(self):
-        return {'_id': self.__class__._id.to_son(self._id)}
+        return {'_id': self.__class__._id.to_mongo(self._id)}
 
 
 class EmbeddedDocument(BaseDocument, metaclass=EmbeddedDocumentMeta):

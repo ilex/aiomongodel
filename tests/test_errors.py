@@ -17,10 +17,23 @@ class RefDoc(Document):
 
 
 class Doc(Document):
-    str_field = StrField(regexp=r'[abc]+')
+    str_field = StrField(regex=r'[abc]+')
     int_field = IntField(gt=0, lt=10)
     emb_field = EmbDocField(EmbDoc)
     lst_field = ListField(RefField(RefDoc), min_length=1, max_length=1)
+
+
+translation = {
+    "field is required": "translation field is required",
+    "invalid value type": "translation invalid value type",
+    "value does not match pattern {constraint}": ("translation value "
+                                                  "does not match pattern "
+                                                  "{constraint}"),
+    "value should be less than {constraint}": ("translation value should be "
+                                               "less than {constraint}"),
+    "list length is less than {constraint}": ("translation list length is "
+                                              "less than {constraint}"),
+}
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -30,9 +43,9 @@ class Doc(Document):
         'emb_field': {'emb_float': 'xxx'},
         'lst_field': []
     }, {
-        'str_field': "does not match pattern [abc]+",
+        'str_field': "value does not match pattern [abc]+",
         'int_field': 'value should be less than 10',
-        'emb_field': {'emb_float': "value can't be converted to float"},
+        'emb_field': {'emb_float': "invalid value type"},
         'lst_field': 'list length is less than 1'
     }),
     ({
@@ -42,7 +55,7 @@ class Doc(Document):
         'lst_field': 1
     }, {
         'emb_field': {'emb_float': 'field is required'},
-        'lst_field': 'value is not a list'
+        'lst_field': 'invalid value type'
     }),
     ({
         'str_field': 'a',
@@ -50,8 +63,8 @@ class Doc(Document):
         'emb_field': 1,
         'lst_field': [1]
     }, {
-        'emb_field': "value can't be converted to EmbDoc",
-        'lst_field': {0: 'value is not ObjectId'}
+        'emb_field': "invalid value type",
+        'lst_field': {0: 'invalid value type'}
     }),
     ({
         'int_field': 5,
@@ -62,11 +75,41 @@ class Doc(Document):
     }),
 ])
 def test_validation_errors(data, expected):
+    doc = Doc.from_data(data)
     with pytest.raises(ValidationError) as excinfo:
-        Doc.from_data(data)
-
+        doc.validate()
     err = excinfo.value.as_dict()
     assert err == expected
+
+
+def test_validation_error_to_str():
+    error = ValidationError('invalid value type')
+    assert str(error) == 'invalid value type'
+
+    error = ValidationError('value should be less than {constraint}',
+                            constraint=10)
+    assert str(error) == 'value should be less than 10'
+
+    error = ValidationError({'name': ValidationError('field is required')})
+    assert str(error) == "{'name': ValidationError(field is required)}"
+
+
+def test_validation_errors_translate():
+    doc = Doc.from_data({
+        'str_field': 'd',
+        'int_field': 15,
+        'emb_field': {'emb_float': 'xxx'},
+        'lst_field': []
+    })
+    with pytest.raises(ValidationError) as excinfo:
+        doc.validate()
+    err = excinfo.value.as_dict(translation)
+    assert err == {
+        'str_field': "translation value does not match pattern [abc]+",
+        'int_field': 'translation value should be less than 10',
+        'emb_field': {'emb_float': "translation invalid value type"},
+        'lst_field': 'translation list length is less than 1'
+    }
 
 
 @pytest.mark.parametrize('message, index_name', [
@@ -76,7 +119,7 @@ def test_validation_errors(data, expected):
     (("E11000 duplicate key error collection: test.xxx index: "
       "my_index dup key: { : 1 }"),
      'my_index'),
-    ('Wrong exception string', None)
+    ('invalid exception string', None)
 ])
 def test_duplicate_key_error(message, index_name):
     err = DuplicateKeyError(message)

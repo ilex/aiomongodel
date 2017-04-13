@@ -11,5 +11,4 @@ dependencies:
   - xz=5.0.5=1
   - zlib=1.2.8=0
   - pip:
-    - trafaret==0.9.0
     - motor==1.1.0

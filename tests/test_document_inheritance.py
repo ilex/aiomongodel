@@ -190,8 +190,8 @@ async def test_document_inheritance_same_collection(db):
             collection_name = 'users'
 
         @classmethod
-        def from_son(cls, data):
-            return super(User, cls.get_class(data['role'])).from_son(data)
+        def from_mongo(cls, data):
+            return super(User, cls.get_class(data['role'])).from_mongo(data)
 
         @classmethod
         def get_class(cls, role):
