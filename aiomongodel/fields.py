@@ -461,9 +461,13 @@ class EmbDocField(CompoundField):
         super().validate(value)
 
     def to_mongo(self, value):
+        if value is None:
+            return None
         return value.to_mongo()
 
     def from_mongo(self, value):
+        if value is None:
+            return None
         return self.document_class.from_mongo(value)
 
     def from_data(self, value):
@@ -538,9 +542,13 @@ class ListField(CompoundField):
             raise ValidationError(errors)
 
     def to_mongo(self, value):
+        if value is None:
+            return None
         return [self.item_field.to_mongo(item) for item in value]
 
     def from_mongo(self, value):
+        if value is None:
+            return None
         return [self.item_field.from_mongo(item) for item in value]
 
     def from_data(self, value):
@@ -618,9 +626,13 @@ class DecimalField(NumberField):
         super().__init__(field_type=Decimal, **kwargs)
 
     def to_mongo(self, value):
+        if value is None:
+            return None
         return Decimal128(value)
 
     def from_mongo(self, value):
+        if value is None:
+            return None
         return value.to_decimal()
 
 
