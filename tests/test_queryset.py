@@ -15,7 +15,7 @@ PY_36 = sys.version_info >= (3, 6)
 
 class ActiveUser(User):
     class Meta:
-        collection_name = User.meta.collection_name
+        collection = User.meta.collection_name
         default_query = {User.active.s: True}
         default_sort = [(User.name.s, ASCENDING)]
 
@@ -401,8 +401,8 @@ async def test_custom_queryset(db, users):
 
     class CustomUser(User):
         class Meta:
-            collection_name = 'user'
-            query_class = CustomUserQuerySet
+            collection = 'user'
+            queryset = CustomUserQuerySet
 
     assert isinstance(CustomUser.q(db), CustomUserQuerySet)
 

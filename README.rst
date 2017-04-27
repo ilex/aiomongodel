@@ -54,7 +54,7 @@ a class with fields and inherit it from ``aiomongodel.EmbeddedDocument``.
         name = SynonymField(_id)
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
 
     class Post(Document):
         # _id field will be added automatically as 
@@ -68,7 +68,7 @@ a class with fields and inherit it from ``aiomongodel.EmbeddedDocument``.
         comments = ListField(EmbDocField('models.Comment'), default=lambda: list())
 
         class Meta:
-            collection_name = 'posts'
+            collection = 'posts'
             indexes = [IndexModel([('created', DESCENDING)])]
             default_sort = [('created', DESCENDING)]
 
@@ -267,7 +267,7 @@ Models Inheritance With Same Collection
         name = SynonymField(_id)
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
         
         @classmethod
         def from_mongo(cls, data):
@@ -282,7 +282,7 @@ Models Inheritance With Same Collection
         address = StrField()
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
             default_query = {User.role.s: 'customer'}
 
     class Admin(User):
@@ -290,7 +290,7 @@ Models Inheritance With Same Collection
         rights = ListField(StrField(), default=lambda: list())
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
             default_query = {User.role.s: 'admin'}
 
 

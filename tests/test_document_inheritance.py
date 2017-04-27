@@ -187,7 +187,7 @@ async def test_document_inheritance_same_collection(db):
         name = SynonymField(_id)
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
 
         @classmethod
         def from_mongo(cls, data):
@@ -206,7 +206,7 @@ async def test_document_inheritance_same_collection(db):
         role = StrField(default='admin')
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
             default_query = {User.role.s: 'admin'}
 
     class Customer(User):
@@ -214,7 +214,7 @@ async def test_document_inheritance_same_collection(db):
         address = StrField()
 
         class Meta:
-            collection_name = 'users'
+            collection = 'users'
             default_query = {User.role.s: 'customer'}
 
     await User(name='User').save(db)

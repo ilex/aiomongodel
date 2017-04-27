@@ -195,7 +195,7 @@ def test_document_meta():
 
     meta = DocWithoutMeta.meta
     assert isinstance(meta, Meta)
-    assert meta.query_class is MotorQuerySet
+    assert meta.queryset is MotorQuerySet
     assert meta.collection_name == 'doc_without_meta'
     assert len(meta.fields) == 1
     assert isinstance(meta.fields['_id'], StrField)
@@ -213,14 +213,14 @@ def test_document_meta():
         name = SynonymField(_id)
 
         class Meta:
-            collection_name = 'docs'
+            collection = 'docs'
             indexes = [IndexModel([('value', ASCENDING)], name='value_index')]
             default_query = {'value': 1}
             write_concern = WriteConcern(w=0)
 
     meta = DocWithMeta.meta
     assert isinstance(meta, Meta)
-    assert meta.query_class is MotorQuerySet
+    assert meta.queryset is MotorQuerySet
     assert meta.collection_name == 'docs'
     assert len(meta.fields) == 2
     assert isinstance(meta.fields['_id'], StrField)
@@ -290,3 +290,13 @@ def test_populate_with_data():
     assert user.active is False
     assert user.data == 10
     assert user.posts == []
+
+
+def test_to_data():
+    user = User(name='totti', posts=[], data=10)
+    assert user.to_data() == {
+        '_id': 'totti',
+        'posts': [],
+        'active': True,
+        'data': 10
+    }

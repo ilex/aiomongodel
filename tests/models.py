@@ -36,7 +36,7 @@ class Post(Document):
     class Meta:
         """Post meta."""
 
-        collection_name = 'posts'
+        collection = 'posts'
         indexes = [
             IndexModel([('title', ASCENDING)],
                        unique=True, name='title_index'),

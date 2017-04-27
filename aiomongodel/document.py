@@ -14,9 +14,10 @@ class Meta:
     """Storage for Document meta info.
 
     Attributes:
-        collection_name: Name of the document's db collection.
+        collection_name: Name of the document's db collection (note that
+            it should be specified as ``collection`` Meta class attribute).
         indexes: List of ``pymongo.IndexModel`` for collection.
-        query_class: Query set class to query documents.
+        queryset: Query set class to query documents.
         default_query: Each query in query set will be extended using this
             query through ``$and`` operator.
         default_sort: Default sort expression to order documents in ``find``.
@@ -30,7 +31,7 @@ class Meta:
 
     """
 
-    OPTIONS = {'query_class', 'collection_name',
+    OPTIONS = {'queryset', 'collection',
                'default_query', 'default_sort',
                'fields', 'fields_synonyms', 'indexes',
                'codec_options', 'read_preference', 'read_concern',
@@ -39,8 +40,8 @@ class Meta:
     def __init__(self, **kwargs):
         self._validate_options(kwargs)
 
-        self.query_class = kwargs.get('query_class', None)
-        self.collection_name = kwargs.get('collection_name', None)
+        self.queryset = kwargs.get('queryset', None)
+        self.collection_name = kwargs.get('collection', None)
         self.default_query = kwargs.get('default_query', {})
         self.default_sort = kwargs.get('default_sort', None)
         self.fields = kwargs.get('fields', None)
@@ -154,13 +155,13 @@ class DocumentMeta(BaseDocumentMeta):
     if it is not specified in Meta class attribute of a the document class.
 
     Attributes:
-        query_class: Default query set class.
+        queryset: Default query set class.
         default_id_field: Field to use as ``_id`` field if it is not
             specified in document class.
 
     """
 
-    query_class = MotorQuerySet
+    queryset = MotorQuerySet
     default_id_field = ObjectIdField(name='_id', required=True,
                                      default=lambda: ObjectId())
 
@@ -185,11 +186,11 @@ class DocumentMeta(BaseDocumentMeta):
     def _get_meta_options(mcls, new_class):
         meta_options = super()._get_meta_options(new_class)
 
-        if 'collection_name' not in meta_options:
-            meta_options['collection_name'] = snake_case(new_class.__name__)
+        if 'collection' not in meta_options:
+            meta_options['collection'] = snake_case(new_class.__name__)
 
-        if 'query_class' not in meta_options:
-            meta_options['query_class'] = mcls.query_class
+        if 'queryset' not in meta_options:
+            meta_options['queryset'] = mcls.queryset
 
         return meta_options
 
@@ -222,6 +223,19 @@ class BaseDocument(object):
 
             if value is not _Empty:
                 setattr(self, field_name, value)
+
+    def to_data(self):
+        """Return internal data of the document.
+
+        .. note::
+            Internal data can contain embedded document objects,
+            lists etc.
+
+        Returns:
+            OrderedDict: Data of the document.
+        """
+        # TODO: Add recursive parameter
+        return self._data
 
     def _get_field_value_from_data(self, data, field_name):
         """Retrieve value from data for given field_name.
@@ -339,9 +353,9 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
     Possible meta options for ``class Meta``:
 
-    - ``collection_name``: Name of the document's db collection.
+    - ``collection``: Name of the document's db collection.
     - ``indexes``: List of ``pymongo.IndexModel`` for collection.
-    - ``query_class``: Query set class to query documents.
+    - ``queryset``: Query set class to query documents.
     - ``default_query``: Each query in query set will be extended using
       this query through ``$and`` operator.
     - ``default_sort``: Default sort expression to order documents in
@@ -368,7 +382,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
 
             class Meta:
                 # define a collection name
-                collection_name = 'users'
+                collection = 'users'
                 # define collection indexes. Use
                 # await User.q(db).create_indexes()
                 # to create them on application startup.
@@ -382,7 +396,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
             is_active = BoolField(default=True, choices=[True])
 
             class Meta:
-                collection_name = 'users'
+                collection = 'users'
                 # specify a default query to work ONLY with
                 # active users. So for example
                 # await ActiveUser.q(db).count({})
@@ -401,7 +415,7 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         Returns:
             MotorQuerySet: Queryset object.
         """
-        return cls.meta.query_class(cls, db)
+        return cls.meta.queryset(cls, db)
 
     @classmethod
     def coll(cls, db):
