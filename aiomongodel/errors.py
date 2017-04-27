@@ -37,7 +37,6 @@ class ValidationError(Error):
             "list length is less than {constraint}": "",
             "list length is greater than {constraint}": "",
             "value is not a valid email address": "",
-            "value is not a valid URL": "",
         }
 
 
