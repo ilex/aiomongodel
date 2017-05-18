@@ -2,8 +2,9 @@ import pytest
 from pymongo import ASCENDING
 
 from aiomongodel import Document, EmbeddedDocument
-from aiomongodel.errors import DocumentNotFoundError
-from aiomongodel.fields import IntField, StrField, FloatField, SynonymField
+from aiomongodel.errors import DocumentNotFoundError, ValidationError
+from aiomongodel.fields import (
+    IntField, StrField, FloatField, SynonymField, BoolField)
 
 
 def test_document_inheritance():
@@ -236,3 +237,30 @@ async def test_document_inheritance_same_collection(db):
     assert users[1].name == 'Customer'
     assert isinstance(users[2], User)
     assert users[2].name == 'User'
+
+
+def test_validate_document_with_subclass_validation_rules():
+    class Doc(Document):
+        name = StrField(allow_blank=False)
+        draft = BoolField(default=False)
+
+        class Meta:
+            collection = 'docs'
+
+    class DraftDoc(Doc):
+        name = StrField(allow_blank=True)
+        draft = BoolField(default=True)
+
+        class Meta:
+            collection = 'docs'
+            default_query = {'draft': False}
+
+    doc = Doc(name='', draft=True)
+    with pytest.raises(ValidationError):
+        doc.validate()
+
+    with pytest.raises(ValidationError):
+        Doc.validate_document(doc)
+
+    # should not raise any exception
+    DraftDoc.validate_document(doc)

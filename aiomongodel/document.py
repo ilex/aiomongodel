@@ -317,7 +317,7 @@ class BaseDocument(object):
         return cls(**data)
 
     def validate(self):
-        """Validate document.
+        """Validate data.
 
         Returns:
             Self instance.
@@ -325,10 +325,23 @@ class BaseDocument(object):
         Raises:
             ValidationError: If document's data is not valid.
         """
+        self.__class__.validate_document(self)
+        return self
+
+    @classmethod
+    def validate_document(cls, document):
+        """Validate given document.
+
+        Args:
+            document: Document instance to validate.
+
+        Raises:
+            ValidationError: If document's data is not valid.
+        """
         errors = {}
-        for field_name, field in self.meta.fields.items():
+        for field_name, field in cls.meta.fields.items():
             try:
-                field.validate(self._data[field_name])
+                field.validate(document._data[field_name])
             except ValidationError as e:
                 errors[field_name] = e
             except KeyError:
@@ -337,7 +350,6 @@ class BaseDocument(object):
 
         if errors:
             raise ValidationError(errors)
-        return self
 
 
 class Document(BaseDocument, metaclass=DocumentMeta):
