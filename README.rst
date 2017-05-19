@@ -2,6 +2,13 @@
 aiomongodel
 ===========
 
+.. image:: https://travis-ci.org/ilex/aiomongodel.svg?branch=master
+    :target: https://travis-ci.org/ilex/aiomongodel
+
+.. image:: https://readthedocs.org/projects/aiomongodel/badge/?version=latest
+    :target: http://aiomongodel.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 An asynchronous ODM similar to `PyMODM`_ on top of `Motor`_ an asynchronous 
 Python `MongoDB`_ driver. Works on ``Python 3.5`` and up. Some features
 such as asynchronous comprehensions require at least ``Python 3.6``. ``aiomongodel``
@@ -18,7 +25,14 @@ Install
 
 Install `aiomongodel` using `pip`::
 
-    pip install https://github.com/ilex/aiomongodel/archive/master.zip
+    pip install aiomongodel
+
+Documentation
+=============
+
+Read the `docs`_.
+
+.. _docs: http://aiomongodel.readthedocs.io/
 
 Getting Start
 =============
