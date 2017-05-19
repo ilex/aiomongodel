@@ -1,0 +1,27 @@
+language: python
+python:
+  - 3.5
+  - 3.6
+
+env:
+  matrix:
+    - MONGODB=3.2.12
+    - MONGODB=3.4.3
+
+matrix:
+  fast_finish: true
+
+install:
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz
+  - tar xzf mongodb-linux-x86_64-${MONGODB}.tgz
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --version
+
+before_script:
+  - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
+
+script:
+  - python setup.py test 
+
+after_script:
+  - pkill mongod
