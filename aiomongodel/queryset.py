@@ -2,6 +2,7 @@
 import functools
 import sys
 import textwrap
+import warnings
 
 import pymongo.errors
 
@@ -168,7 +169,16 @@ class MotorQuerySet(object):
 
     async def count(self, query={}, **kwargs):
         """Count documents in collection."""
-        return await self.collection.count(
+        warnings.warn("Use `count_documents` instead",
+                      DeprecationWarning,
+                      stacklevel=2)
+
+        return await self.collection.count_documents(
+            self._update_query(query), **kwargs)
+
+    async def count_documents(self, query={}, **kwargs):
+        """Count documents in collection."""
+        return await self.collection.count_documents(
             self._update_query(query), **kwargs)
 
     def aggregate(self, pipeline, **kwargs):
@@ -195,7 +205,7 @@ class MotorQuerySet(object):
 class MotorQuerySetCursor(object):
     """Cursor based on motor cursor."""
 
-    DIRECT_TO_MOTOR = {'distinct', 'explain', 'count'}
+    DIRECT_TO_MOTOR = {'distinct', 'explain'}
 
     def __init__(self, doc_class, cursor):
         self.doc_class = doc_class
@@ -212,7 +222,7 @@ class MotorQuerySetCursor(object):
             length: Number of items to return.
 
         Returns:
-            list: List of document model isinstances.
+            list: List of document model instances.
         """
         data = await self.cursor.to_list(length)
         return [self.doc_class.from_mongo(item) for item in data]
