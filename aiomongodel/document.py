@@ -77,6 +77,22 @@ class Meta:
             write_concern=self.write_concern,
             codec_options=self.codec_options)
 
+    async def create_collection(self, db):
+        """Create collection for documents.
+
+        Args:
+            db: Database object.
+
+        Returns:
+            Collection object.
+        """
+        return await db.create_collection(
+            self.collection_name,
+            read_preference=self.read_preference,
+            read_concern=self.read_concern,
+            write_concern=self.write_concern,
+            codec_options=self.codec_options)
+
 
 class BaseDocumentMeta(type):
     """Base metaclass for documents."""
@@ -418,16 +434,17 @@ class Document(BaseDocument, metaclass=DocumentMeta):
     """
 
     @classmethod
-    def q(cls, db):
+    def q(cls, db, session=None):
         """Return queryset object.
 
         Args:
             db: Motor database object.
+            session: Motor client session object.
 
         Returns:
             MotorQuerySet: Queryset object.
         """
-        return cls.meta.queryset(cls, db)
+        return cls.meta.queryset(cls, db, session=session)
 
     @classmethod
     def coll(cls, db):
@@ -440,6 +457,18 @@ class Document(BaseDocument, metaclass=DocumentMeta):
             MotorCollection: Raw Motor collection object.
         """
         return cls.meta.collection(db)
+
+    @classmethod
+    async def create_collection(cls, db):
+        """Create collection for documents.
+
+        Args:
+            db: Motor database object.
+
+        Returns:
+            MotorCollection: Raw Motor collection object.
+        """
+        return await cls.meta.create_collection(db)
 
     @classmethod
     async def create(cls, db, **kwargs):
@@ -458,30 +487,33 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         inst = cls.from_data(kwargs)
         return await inst.save(db, do_insert=True)
 
-    async def save(self, db, do_insert=False):
+    async def save(self, db, do_insert=False, session=None):
         """Save document in mongodb.
 
         Args:
             db: Database instance.
             do_insert (bool): If ``True`` always perform ``insert_one``, else
                 perform ``replace_one`` with ``upsert=True``.
+            session: Motor session object.
         """
         data = self.to_mongo()
         if do_insert:
-            await self.__class__.q(db).insert_one(data)
+            await self.__class__.q(db, session=session).insert_one(data)
         else:
-            await self.__class__.q(db).replace_one({'_id': data['_id']},
-                                                   data, upsert=True)
+            await self.__class__.q(db, session=session).replace_one(
+                    {'_id': data['_id']},
+                    data, upsert=True)
+
         return self
 
-    async def reload(self, db):
+    async def reload(self, db, session=None):
         """Reload current object from mongodb."""
         cls = self.__class__
-        data = await cls.coll(db).find_one(self.query_id)
+        data = await cls.coll(db).find_one(self.query_id, session=session)
         self._set_mongo_data(data)
         return self
 
-    async def update(self, db, update_document):
+    async def update(self, db, update_document, session=None):
         """Update current object using query.
 
         Usage:
@@ -499,17 +531,18 @@ class Document(BaseDocument, metaclass=DocumentMeta):
                                 '$inc': {User.value.s: 1}})
 
         """
-        cls = self.__class__
-        count = await cls.q(db).update_one(self.query_id, update_document)
+        qs = self.__class__.q(db, session=session)
+        count = await qs.update_one(self.query_id, update_document)
         # TODO: maybe we should return number of updates or raise if it's 0.
         if count > 0:
-            await self.reload(db)
+            await self.reload(db, session=session)
 
         return self
 
-    async def delete(self, db):
+    async def delete(self, db, session=None):
         """Delete current object from db."""
-        return await self.__class__.q(db).delete_one(self.query_id)
+        qs = self.__class__.q(db, session=session)
+        return await qs.delete_one(self.query_id)
 
     @property
     def query_id(self):
