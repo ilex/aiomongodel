@@ -4,14 +4,19 @@ python:
   - 3.6
   - 3.7
 
-services:
-  - mongodb
+env:
+  - MONGODB=4.0.0
+
+install:
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz
+  - tar xzf mongodb-linux-x86_64-${MONGODB}.tgz
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --version
 
 before_script:
-  - echo "replSet = rs0" | sudo tee -a /etc/mongodb.conf
-  - sudo service mongod restart
+  - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --replSet rs0 --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
   - sleep 20
-  - mongo --eval 'rs.initiate()'
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongo --eval 'rs.initiate()'
   - sleep 15
 
 script:
