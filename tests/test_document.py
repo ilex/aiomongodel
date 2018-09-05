@@ -300,3 +300,15 @@ def test_to_data():
         'active': True,
         'data': 10
     }
+
+
+async def test_create_collection(db):
+    class A(Document):
+        class Meta:
+            collection = 'my_collection'
+
+    await db.drop_collection('my_collection')
+    assert 'my_collection' not in await db.list_collection_names()
+
+    await A.create_collection(db)
+    assert 'my_collection' in await db.list_collection_names()
