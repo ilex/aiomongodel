@@ -1,5 +1,6 @@
 """Base document class."""
 import contextlib
+import warnings
 from collections import OrderedDict
 
 from bson import ObjectId, SON
@@ -71,22 +72,6 @@ class Meta:
             Collection object.
         """
         return db.get_collection(
-            self.collection_name,
-            read_preference=self.read_preference,
-            read_concern=self.read_concern,
-            write_concern=self.write_concern,
-            codec_options=self.codec_options)
-
-    async def create_collection(self, db):
-        """Create collection for documents.
-
-        Args:
-            db: Database object.
-
-        Returns:
-            Collection object.
-        """
-        return await db.create_collection(
             self.collection_name,
             read_preference=self.read_preference,
             read_concern=self.read_concern,
@@ -459,23 +444,12 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         return cls.meta.collection(db)
 
     @classmethod
-    async def create_collection(cls, db):
-        """Create collection for documents.
-
-        Args:
-            db: Motor database object.
-
-        Returns:
-            MotorCollection: Raw Motor collection object.
-        """
-        return await cls.meta.create_collection(db)
-
-    @classmethod
-    async def create(cls, db, **kwargs):
+    async def create(cls, db, session=None, **kwargs):
         """Create document in mongodb.
 
         Args:
             db: Database instance.
+            session: Motor session object.
             **kwargs: Document's fields values.
 
         Returns:
@@ -484,8 +458,12 @@ class Document(BaseDocument, metaclass=DocumentMeta):
         Raises:
             ValidationError: If some fields are not valid.
         """
+        warnings.warn("Use `create` method of `queryset` instead",
+                      DeprecationWarning,
+                      stacklevel=2)
+
         inst = cls.from_data(kwargs)
-        return await inst.save(db, do_insert=True)
+        return await inst.save(db, do_insert=True, session=session)
 
     async def save(self, db, do_insert=False, session=None):
         """Save document in mongodb.
@@ -547,6 +525,24 @@ class Document(BaseDocument, metaclass=DocumentMeta):
     @property
     def query_id(self):
         return {'_id': self.__class__._id.to_mongo(self._id)}
+
+    @classmethod
+    async def create_collection(self, db, session=None):
+        """Create collection for documents.
+
+        Args:
+            db: Database object.
+
+        Returns:
+            Collection object.
+        """
+        return await db.create_collection(
+            self.meta.collection_name,
+            read_preference=self.meta.read_preference,
+            read_concern=self.meta.read_concern,
+            write_concern=self.meta.write_concern,
+            codec_options=self.meta.codec_options,
+            session=session)
 
 
 class EmbeddedDocument(BaseDocument, metaclass=EmbeddedDocumentMeta):

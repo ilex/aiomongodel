@@ -38,17 +38,24 @@ class MotorQuerySet(object):
 
     def clone(self):
         """Return a copy of queryset."""
-        qs = type(self)(self.doc_class, self.db)
+        qs = type(self)(self.doc_class, self.db, session=self.session)
         qs.default_query = self.default_query
         qs.collection = self.collection
-        qs.session = self.session
         return qs
 
     async def create(self, **kwargs):
-        """Create document."""
-        return await self.doc_class.create(
-            self.db,
-            **self._update_query_params(kwargs))
+        """Create document.
+
+        Args:
+            **kwargs: fields of the document.
+
+        Returns:
+            Document instance.
+        """
+        obj = self.doc_class(**kwargs)
+        await obj.save(db=self.db, session=self.session)
+
+        return obj
 
     async def create_indexes(self):
         """Create document's indexes defined in Meta class."""
