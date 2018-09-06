@@ -4,7 +4,7 @@ import re
 from setuptools import setup, find_packages
 
 
-install_requires = ['motor==2.0']
+install_requires = ['motor>=2.0,<3.0']
 
 
 tests_require = ['pytest']
@@ -48,5 +48,6 @@ setup(
             'Programming Language :: Python :: 3 :: Only',
             'Programming Language :: Python :: 3.5',
             'Programming Language :: Python :: 3.6',
+            'Programming Language :: Python :: 3.7',
         ]
 )
