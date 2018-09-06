@@ -14,6 +14,8 @@ Python `MongoDB`_ driver. Works on ``Python 3.5`` and up. Some features
 such as asynchronous comprehensions require at least ``Python 3.6``. ``aiomongodel``
 can be used with `asyncio`_ as well as with `Tornado`_.
 
+Usage of ``session`` requires at least MongoDB version 4.0.
+
 .. _PyMODM: http://pymodm.readthedocs.io/en/stable
 .. _Motor: https://pypi.python.org/pypi/motor
 .. _MongoDB: https://www.mongodb.com/
@@ -121,8 +123,6 @@ CRUD
         assert u.is_active is True
         assert u.posts == []
         assert u.quote is None
-        # create using create
-        u = await User.create(db, name='Francesco')
         # using query
         u = await User.q(db).create(name='Ihor', is_active=False)
 
@@ -306,6 +306,48 @@ Models Inheritance With Same Collection
         class Meta:
             collection = 'users'
             default_query = {User.role.s: 'admin'}
+
+
+Transaction
+-----------
+
+.. code-block:: python
+
+    from motor.motor_asyncio import AsyncIOMotorClient
+    
+    async def go(db):
+        # create collection before using transaction
+        await User.create_collection(db)
+
+        async with await db.client.start_session() as session:
+            try:
+                async with s.start_transaction():
+                    # all statements that use session inside this block
+                    # will be executed in one transaction
+
+                    # pass session to QuerySet
+                    await User.q(db, session=session).create(name='user')  # note session param
+                    # pass session to QuerySet method 
+                    await User.q(db).update_one(
+                        {User.name.s: 'user'},
+                        {'$set': {User.is_active.s: False}},
+                        session=session)  # note session usage
+                    assert await User.q(db, session).count_documents({User.name.s: 'user'}) == 1
+
+                    # session could be used in document crud methods
+                    u = await User(name='user2').save(db, session=session)
+                    await u.delete(db, session=session)
+
+                    raise Exception()  # simulate error in transaction block
+             except Exception:
+                 # transaction was not committed 
+                 assert await User.q(db).count_documents({User.name.s: 'user'}) == 0
+                    
+        
+    loop = asyncio.get_event_loop()
+    client = AsyncIOMotorClient(io_loop=loop)
+    db = client.aiomongodel_test
+    loop.run_until_complete(go(db))
 
 
 License
