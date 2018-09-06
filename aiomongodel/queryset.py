@@ -9,7 +9,8 @@ import pymongo.errors
 from aiomongodel.errors import DocumentNotFoundError, DuplicateKeyError
 
 
-PY_36 = sys.version_info >= (3, 6)
+PY_36 = (3, 6) <= sys.version_info < (3, 7)
+PY_35 = (3, 5) <= sys.version_info < (3, 6)
 
 
 class MotorQuerySet(object):
@@ -276,13 +277,14 @@ class MotorQuerySetCursor(object):
         """Get copy of this cursor."""
         return self.__class__(self.doc_class, self.cursor.clone())
 
-    if PY_36:
+    if not PY_35:
         # for python >= 3.6 implement __aiter__ as async generator
+        # for python 3.6 __aiter__ should be a coroutine
         exec(textwrap.dedent("""
-        async def __aiter__(self):
+        {0}def __aiter__(self):
             return (self.doc_class.from_mongo(item)
                     async for item in self.cursor)
-        """), globals(), locals())
+        """.format('async ' if PY_36 else '')), globals(), locals())
     else:
         # for python < 3.6 implement __aiter__ as async iterator
         exec(textwrap.dedent("""
