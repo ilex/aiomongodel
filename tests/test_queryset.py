@@ -371,7 +371,7 @@ async def test_default_query_get(db, users):
 
 
 async def test_default_query_count(db, users):
-    assert await ActiveUser.q(db).count({}) == 2
+    assert await ActiveUser.q(db).count_documents({}) == 2
 
 
 async def test_default_query_find(db, users):
