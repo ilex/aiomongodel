@@ -3,13 +3,16 @@ python:
   - 3.5
   - 3.6
 
-env:
-  matrix:
-    - MONGODB=3.2.12
-    - MONGODB=3.4.3
-
+# Enable 3.7 without globally enabling sudo and dist: xenial for other build jobs
 matrix:
-  fast_finish: true
+  include:
+    - python: 3.7
+      dist: xenial
+      sudo: true
+
+env:
+  - MONGODB=4.0.0
+
 
 install:
   - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz
@@ -18,10 +21,10 @@ install:
 
 before_script:
   - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
-  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --replSet rs0 --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
+  - sleep 20
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongo --eval 'rs.initiate()'
+  - sleep 15
 
 script:
   - python setup.py test 
-
-after_script:
-  - pkill mongod

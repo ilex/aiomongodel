@@ -65,12 +65,12 @@ async def test_create(db):
 
 async def test_delete(db, users):
     assert await User.q(db).delete_one({User.name.s: 'admin'}) == 1
-    assert await db.user.count() == 3
+    assert await db.user.count_documents({}) == 3
     assert await db.user.find_one({'_id': 'admin'}) is None
 
     assert await User.q(db).delete_many({User.active.s: False}) == 2
-    assert await db.user.count() == 1
-    assert await db.user.count({'active': False}) == 0
+    assert await db.user.count_documents({}) == 1
+    assert await db.user.count_documents({'active': False}) == 0
 
 
 async def test_replace(db):
@@ -90,18 +90,18 @@ async def test_replace(db):
 
 
 async def test_update(db, users):
-    assert await db.user.count() == 4
+    assert await db.user.count_documents({}) == 4
 
     res = await User.q(db).update_one(
         {User.active.s: False}, {'$set': {User.active.s: True}})
     assert res == 1
-    assert await db.user.count({'active': True}) == 3
+    assert await db.user.count_documents({'active': True}) == 3
 
     res = await User.q(db).update_many(
         {User.active.s: True}, {'$set': {User.active.s: False}})
 
     assert res == 3
-    assert await db.user.count({'active': True}) == 0
+    assert await db.user.count_documents({'active': True}) == 0
 
 
 async def test_insert_one(db):
@@ -123,7 +123,7 @@ async def test_insert_many(db):
     assert res[0] == u1._id
     assert res[1] == u2._id
 
-    assert await db.user.count() == 2
+    assert await db.user.count_documents({}) == 2
 
 
 async def test_find_one(db, users):
@@ -148,6 +148,12 @@ async def test_count(db, users):
     assert await User.q(db).count({}) == 4
     assert await User.q(db).count({'active': True}) == 2
     assert await User.q(db).count({'active': True, 'data': 10}) == 1
+
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use `count_documents` instead"
+    ):
+        await User.q(db).count({})
 
 
 async def test_find(db):
@@ -211,12 +217,6 @@ async def test_find_projection(db, users):
     assert users[0].name == 'admin'
     assert users[0].active is None
     assert users[0].data is None
-
-
-async def test_find_count(db, users):
-    assert await User.q(db).find({}).count() == 4
-    assert await User.q(db).find({'active': True}).count() == 2
-    assert await User.q(db).find({'active': True, 'data': 10}).count() == 1
 
 
 async def test_find_for_loop(db, users):
@@ -294,23 +294,23 @@ async def test_default_query_aggregate(db, users):
 async def test_default_query_delete_one(db, users):
     res = await ActiveUser.q(db).delete_one({ActiveUser.name.s: 'xxx'})
     assert res == 0
-    assert await db.user.count() == 4
+    assert await db.user.count_documents({}) == 4
 
     res = await ActiveUser.q(db).delete_one({ActiveUser.name.s: 'admin'})
     assert res == 1
-    assert await db.user.count() == 3
+    assert await db.user.count_documents({}) == 3
     assert await db.user.find_one({'_id': 'admin'}) is None
 
 
 async def test_default_query_delete_many(db, users):
     res = await ActiveUser.q(db).delete_many({ActiveUser.active.s: False})
     assert res == 0
-    assert await db.user.count() == 4
+    assert await db.user.count_documents({}) == 4
 
     res = await ActiveUser.q(db).delete_many({})
     assert res == 2
-    assert await db.user.count() == 2
-    assert await db.user.count({'active': True}) == 0
+    assert await db.user.count_documents({}) == 2
+    assert await db.user.count_documents({'active': True}) == 0
 
 
 async def test_default_query_replace(db, users):
@@ -333,25 +333,25 @@ async def test_default_query_update_one(db, users):
     res = await ActiveUser.q(db).update_one(
         {ActiveUser.active.s: False}, {'$set': {ActiveUser.active.s: True}})
     assert res == 0
-    assert await db.user.count({'active': True}) == 2
+    assert await db.user.count_documents({'active': True}) == 2
 
     res = await ActiveUser.q(db).update_one(
         {}, {'$set': {ActiveUser.active.s: False}})
     assert res == 1
-    assert await db.user.count({'active': True}) == 1
+    assert await db.user.count_documents({'active': True}) == 1
 
 
 async def test_default_query_update_many(db, users):
     res = await ActiveUser.q(db).update_many(
         {ActiveUser.active.s: False}, {'$set': {ActiveUser.active.s: True}})
     assert res == 0
-    assert await db.user.count({'active': True}) == 2
+    assert await db.user.count_documents({'active': True}) == 2
 
     res = await ActiveUser.q(db).update_many(
         {}, {'$set': {ActiveUser.active.s: False}})
     assert res == 2
-    assert await db.user.count({'active': False}) == 4
-    assert await db.user.count({'active': True}) == 0
+    assert await db.user.count_documents({'active': False}) == 4
+    assert await db.user.count_documents({'active': True}) == 0
 
 
 async def test_default_query_find_one(db, users):
@@ -371,7 +371,7 @@ async def test_default_query_get(db, users):
 
 
 async def test_default_query_count(db, users):
-    assert await ActiveUser.q(db).count({}) == 2
+    assert await ActiveUser.q(db).count_documents({}) == 2
 
 
 async def test_default_query_find(db, users):

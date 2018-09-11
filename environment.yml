@@ -11,4 +11,4 @@ dependencies:
   - xz=5.0.5=1
   - zlib=1.2.8=0
   - pip:
-    - motor==1.1.0
+    - motor==2.0

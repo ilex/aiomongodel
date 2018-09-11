@@ -18,10 +18,12 @@ test:
 doc:
 	cd docs && make html
 testpypi: clean
-	pip install wheel
-	python setup.py sdist bdist_wheel upload -r testpypi
+	pip install --upgrade wheel twine
+	python setup.py sdist bdist_wheel
+	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 pypi: clean
-	pip install wheel
-	python setup.py sdist bdist_wheel upload
+	pip install --upgrade wheel twine
+	python setup.py sdist bdist_wheel
+	twine upload dist/*
 cov:
 	py.test -v --cov-report=term-missing --cov=aiomongodel tests
