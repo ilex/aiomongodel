@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.2.0 (xxxx-xx-xx)
+0.2.0 (2018-09-12)
 ------------------
 
 Move requirements to motor>=2.0.
