@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.2.1 (2020-12-14)
+------------------
+
+Add verbose_name to ``Field`` for meta information.
+
+Fix ``DecimalField``'s issue to load field from float value.
+
 0.2.0 (2018-09-12)
 ------------------
 

@@ -27,13 +27,15 @@ class Field(abc.ABC):
         required (bool): Is field required.
         allow_none (bool): Can field be assigned with ``None``.
         default: Default value for field.
+        verbose_name (str): Verbose field name for met information about field.
         choices (dict, set): Dict or set of choices for a field. If it is a
             ``dict`` keys are used as choices.
 
     """
 
     def __init__(self, *, required=True, default=_Empty, mongo_name=None,
-                 name=None, allow_none=False, choices=None, field_type=None):
+                 name=None, allow_none=False, choices=None, field_type=None,
+                 verbose_name=None):
         """Create field.
 
         Args:
@@ -59,6 +61,8 @@ class Field(abc.ABC):
                 it is set by metaclass. Defaults to ``None``.
             allow_none (bool): Can field be assign with ``None``. Defaults
                 to ``False``.
+            verbose_name (str): Verbose field name for met information about field.
+                Defaults to ``None``.
             choices (dict, set): Possible values for field. If it is a
                 ``dict``, keys should be possible values. To preserve values
                 order use ``collections.OrderedDict``. Defaults to ``None``.
@@ -73,6 +77,7 @@ class Field(abc.ABC):
         self.required = required
         self.allow_none = allow_none
         self._default = default
+        self.verbose_name = verbose_name
         if choices is None or isinstance(choices, dict):
             self.choices = choices
         else:
