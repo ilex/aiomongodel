@@ -281,6 +281,8 @@ def test_field_to_mongo(field, value, expected):
     (EmailField(), 'totti@example.com', 'totti@example.com'),
     (EmailField(), None, None),
     (DecimalField(), Decimal128(Decimal('0.005')), Decimal('0.005')),
+    (DecimalField(), float(0.005), Decimal('0.005')),
+    (DecimalField(), str(0.005), Decimal('0.005')),
     (DecimalField(), None, None),
     (EmbDocField(EmbDoc, allow_none=True), None, None)
 ])
