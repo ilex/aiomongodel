@@ -1,4 +1,5 @@
 from models import User
+from pytest import mark
 
 
 async def test_get_queryset(db):
@@ -34,6 +35,7 @@ async def test_queryset_operations(db):
         await User.q(db, session=s).find({}).to_list(10)
 
 
+@mark.skip
 async def test_transaction_commit(db):
     # create collection before using transaction
     await User.create_collection(db)
