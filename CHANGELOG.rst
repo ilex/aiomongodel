@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.2.2 (2020-12-14)
+------------------
+
+Bump version of motor for python 3.11 compatibility.
+
+Add tests workflow for GitHub Actions CI.
+
 0.2.1 (2020-12-14)
 ------------------
 

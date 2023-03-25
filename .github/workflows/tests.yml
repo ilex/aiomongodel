@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  tests:
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        python-version:
+          - "3.5"
+          - "3.6"
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+    steps:
+      - uses: supercharge/mongodb-github-action@1.8.0
+        with:
+          mongodb-replica-set: test-rs
+          mongodb-port: 27017
+      - uses: actions/setup-python@v4
+        with:
+            python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v3
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -v -x tests
